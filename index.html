@@ -101,6 +101,7 @@ nav.tabs button[aria-current="true"]{color:var(--accent-text)}
 .tag{display:inline-block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--accent-text)}
 .thumbs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .thumbs img{width:28px;height:28px;border-radius:8px;object-fit:cover}
+.fineprint{margin:18px 8px 0;text-align:center;font-size:11px;line-height:1.4;color:var(--muted);opacity:.8}.fineprint a{color:inherit}
 .credits summary{font-weight:600;cursor:pointer;min-height:24px}
 .credits ol{margin:10px 0 0;padding-left:20px;font-size:12px;color:var(--muted)}
 .credits li{margin:4px 0}
@@ -552,8 +553,8 @@ function renderMe(){
      <div class="legend"><span style="--c:var(--ink)">Съедено</span><span style="--c:var(--accent)">Сверх нормы</span><span style="--c:var(--save)">Мимо рта</span></div>
    </div>
    <div class="sheet"><div class="tot"><span class="muted">Дневная норма</span><span>${fmt(N)} ккал</span></div><button class="ghost" data-go="setup">${S.profile?"Изменить данные":"Рассчитать норму"}</button></div>
-   <details class="sheet credits"><summary>Фото блюд и модель распознавания</summary><p class="note">Распознавание еды: модель MobileCLIP-S0 (Apple), <a href="MOBILECLIP_LICENSE.txt" target="_blank" rel="noopener">лицензия</a>. Фото блюд: Wikimedia Commons и Шедеврум.</p><ol>${CREDITS.map(c=>`<li>${c.d}: <a href="${c.u}" target="_blank" rel="noopener">${esc(c.a)}</a>, ${c.l}</li>`).join("")}</ol></details>
-   <button class="ghost" id="reset">Сбросить все данные</button>`;
+   <button class="ghost" id="reset">Сбросить все данные</button>
+   <p class="fineprint">Распознавание еды: MobileCLIP-S0 (Apple), <a href="MOBILECLIP_LICENSE.txt" target="_blank" rel="noopener">лицензия</a>. Фото блюд созданы ИИ.</p>`;
 }
 
 /* ---------- События ---------- */
