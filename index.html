@@ -340,7 +340,7 @@ function renderSetup(){
   $("#view").innerHTML=`
    ${S.profile?`<button class="back" data-go="me">← Итоги</button>`:""}
    <h1>Ваша дневная норма</h1>
-   <p class="lead">Посчитаем, сколько калорий в день вам можно, чтобы худеть без голода.</p>
+   <p class="lead">Посчитаем, сколько калорий в день нужно именно вам под вашу цель.</p>
    <div class="field"><label for="sex">Пол</label><select id="sex"><option value="f" ${p.sex==="f"?"selected":""}>Женский</option><option value="m" ${p.sex==="m"?"selected":""}>Мужской</option></select></div>
    <div class="two">
      <div class="field"><label for="age">Возраст</label><input id="age" type="number" inputmode="numeric" value="${p.age}"></div>
