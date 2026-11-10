@@ -3,7 +3,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Мимо рта">
-<meta name="theme-color" content="#15201b">
+<meta name="theme-color" content="#fff6ee"><meta name="color-scheme" content="light only">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <script src="ort.wasm.min.js"></script>
@@ -12,18 +12,12 @@
 <style>
 /* Layout: one-column phone app shell, sticky header, bottom tab bar, screens swapped in place */
 :root{
-  --bg:#f3f5ef; --surface:#ffffff; --ink:#15201b; --muted:#5e6862; --line:#e2e6dd;
-  --accent:#e0466e; --accent-ink:#15201b; --accent-text:#c7375c; --save:#1f9d6b; --save-text:#157a52; --save-soft:#dff3ea; --warm:#ffb547;
-  --plate:#f7ece2; --ring:#e0466e; --route:#1f9d6b;
+  --bg:#fff6ee; --surface:#ffffff; --ink:#2b1a12; --muted:#7a675b; --line:#f3e3d5;
+  --accent:#f4511e; --accent-ink:#ffffff; --accent-text:#d9400f; --save:#1f9d6b; --save-text:#157a52; --save-soft:#e1f5ea; --warm:#ffb400;
+  --plate:#ffe9d6; --ring:#f4511e; --route:#1f9d6b;
   --display:"Unbounded", "Arial Black", system-ui, sans-serif;
   --body:"Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0f1613; --surface:#18221d; --ink:#eef2ec; --muted:#9aa59f; --line:#26332c;
-  --accent:#ff6a8e; --accent-ink:#1a0a10; --accent-text:#ff6a8e; --save:#47c993; --save-text:#47c993; --save-soft:#173528; --warm:#ffc46b; --plate:#2a241f; --ring:#ff6a8e; --route:#47c993; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0f1613; --surface:#18221d; --ink:#eef2ec; --muted:#9aa59f; --line:#26332c;
-  --accent:#ff6a8e; --accent-ink:#1a0a10; --accent-text:#ff6a8e; --save:#47c993; --save-text:#47c993; --save-soft:#173528; --warm:#ffc46b; --plate:#2a241f; --ring:#ff6a8e; --route:#47c993; color-scheme:dark}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
@@ -48,7 +42,7 @@ h2{font-size:17px;font-weight:700}
 .chips{display:flex;gap:8px;overflow-x:auto;margin:18px -16px 0;padding:0 16px 4px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;padding:8px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-weight:600;font-size:14px}
-.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
 .dish{background:var(--surface);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;text-align:left;border:1px solid var(--line)}
 .dish .pic{aspect-ratio:1/0.82;max-width:100%;display:grid;place-items:center;font-size:58px;background:var(--plate)}
@@ -59,9 +53,9 @@ h2{font-size:17px;font-weight:700}
 .price{font-weight:700;font-variant-numeric:tabular-nums}
 .kcal{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .add{width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:20px;line-height:1;display:grid;place-items:center;font-weight:700}
-.qty{min-width:36px;height:36px;padding:0 10px;border-radius:999px;background:var(--ink);color:var(--bg);font-weight:700;display:grid;place-items:center;font-size:14px}
+.qty{min-width:36px;height:36px;padding:0 10px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;display:grid;place-items:center;font-size:14px}
 .cartbar{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:6;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-.cartbar button{max-width:448px;margin:0 auto;width:100%;display:flex;justify-content:space-between;align-items:center;background:var(--ink);color:var(--bg);border-radius:18px;padding:14px 18px;font-weight:700;box-shadow:0 10px 30px -10px rgba(21,32,27,.6)}
+.cartbar button{max-width:448px;margin:0 auto;width:100%;display:flex;justify-content:space-between;align-items:center;background:var(--accent);color:#fff;border-radius:18px;padding:14px 18px;font-weight:700;box-shadow:0 10px 30px -10px rgba(244,81,30,.65)}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 nav.tabs div{display:grid;grid-template-columns:repeat(3,1fr);max-width:448px;width:100%}
 nav.tabs button{height:64px;font-size:12px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
@@ -121,7 +115,7 @@ nav.tabs button[aria-current="true"]{color:var(--accent-text)}
 .stat div{display:flex;justify-content:space-between;gap:8px;font-variant-numeric:tabular-nums}
 .stat div span:first-child{color:var(--muted)}
 .stat .mimo{color:var(--save-text);font-weight:700}
-.crave{margin-top:14px;display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--ink);color:var(--bg);border-radius:20px;padding:14px 16px}
+.crave{margin-top:14px;display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:linear-gradient(135deg,#ff8a3d,#f04618);color:#fff;border-radius:20px;padding:14px 16px}
 .crave svg{width:52px;height:52px;flex:none}
 .crave b{display:block;font-family:var(--display);font-size:16px;font-weight:700}
 .crave span{font-size:13px;opacity:.8}
@@ -180,7 +174,7 @@ nav.tabs button[aria-current="true"]{color:var(--accent-text)}
 
 <script>
 const LOGO=`<svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="84" r="36" fill="none" stroke="var(--ring)" stroke-width="20"/><path d="M12 88 H30 C48 88 46 172 100 172 C154 172 152 88 170 88 H176" fill="none" stroke="var(--route)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M164 70 L184 88 L164 106" fill="none" stroke="var(--route)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const LOGO_DARK=`<svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="84" r="36" fill="none" stroke="#ff6a8e" stroke-width="20"/><path d="M12 88 H30 C48 88 46 172 100 172 C154 172 152 88 170 88 H176" fill="none" stroke="#47c993" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M164 70 L184 88 L164 106" fill="none" stroke="#47c993" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const LOGO_DARK=`<svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="84" r="36" fill="none" stroke="#ffffff" stroke-width="20"/><path d="M12 88 H30 C48 88 46 172 100 172 C154 172 152 88 170 88 H176" fill="none" stroke="#ffd65a" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M164 70 L184 88 L164 106" fill="none" stroke="#ffd65a" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const DISHES=[
  {id:1,c:"Бургеры",n:"Двойной чизбургер с беконом",e:"🍔",p:590,k:980},
  {id:2,c:"Бургеры",n:"Картофель фри большой",e:"🍟",p:220,k:510},
