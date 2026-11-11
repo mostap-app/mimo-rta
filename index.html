@@ -107,6 +107,12 @@ button.t{text-align:left;padding:0;background:none;border:0;cursor:pointer}butto
 .daynav{display:flex;align-items:center;justify-content:space-between;gap:8px}.daynav h1{flex:1;text-align:center;margin:0}.daynav button{width:44px;height:44px;border-radius:50%;background:var(--surface);border:1px solid var(--line);font-size:24px;line-height:1;color:var(--ink)}.daynav button:disabled{opacity:.3}
 #undo{margin-left:10px;color:#ffb48f;font-weight:700;text-decoration:underline;background:none;border:0;padding:4px 0}
 .restore{display:flex;align-items:center;justify-content:center;cursor:pointer}
+.crave2 h2{margin:0;font-family:var(--display);font-size:18px}.crave2 .note{margin-top:4px}
+.rail{display:flex;gap:10px;overflow-x:auto;margin:12px -16px 0;padding:0 16px 4px;scroll-snap-type:x mandatory;scroll-padding:0 16px;scrollbar-width:none}.rail::-webkit-scrollbar{display:none}
+.tile{flex:0 0 136px;text-align:left;background:var(--bg);border-radius:16px;padding:0 0 10px;overflow:hidden;scroll-snap-align:start;border:1px solid var(--line)}
+.tile .ph{height:92px;background:var(--plate);display:grid;place-items:center;font-size:40px;overflow:hidden}.tile .ph img{width:100%;height:100%;object-fit:cover}
+.tile b{display:block;font-size:13px;line-height:1.25;padding:8px 10px 4px;min-height:44px}.tile span{display:block;font-size:12px;font-weight:700;color:var(--save-text);padding:0 10px}
+.crave2 .cta{margin-top:12px}
 .credits summary{font-weight:600;cursor:pointer;min-height:24px}
 .credits ol{margin:10px 0 0;padding-left:20px;font-size:12px;color:var(--muted)}
 .credits li{margin:4px 0}
@@ -237,6 +243,10 @@ function plural(n,a,b,c){n=Math.abs(n)%100;const m=n%10;if(n>10&&n<20)return c;i
 let S=load();
 let photo=null, ortSess=null, EM=null, scan=null, ocrW=null, editIdx=null, viewDay=null, undo=null;
 const curDay=()=>viewDay||dk();
+/* Яндекс Метрика: впишите номер счётчика, 0 = выключено */
+const METRIKA_ID=0;
+function goal(n){try{if(METRIKA_ID&&window.ym)ym(METRIKA_ID,"reachGoal",n)}catch(e){}}
+if(METRIKA_ID){(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})(window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");ym(METRIKA_ID,"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true})}
 let cat="Всё", cart={}, tab="diary", order=S.active||null, addMeal=0, pick=null, q="";
 
 function load(){
@@ -276,6 +286,18 @@ function render(){
 }
 
 /* ---------- Дневник ---------- */
+function craveBlock(left){
+  const h=new Date().getHours();
+  const order=h<11?[9,8,11,1]:h<17?[1,5,3,6]:[3,1,6,10];
+  const ids=[...order,...DISHES.map(d=>d.id).filter(i=>!order.includes(i))];
+  const title=left<0?"Норма уже позади. Но хочется?":left<400?"Почти всё съедено. Тянет ещё?":h>=20?"Вечером тянет на вредное?":"Тянет на вредное?";
+  return `<div class="sheet crave2">
+    <h2>${title}</h2>
+    <p class="note">Закажите понарошку: курьер не приедет, а калории и деньги останутся при вас.</p>
+    <div class="rail">${ids.map(dish).map(d=>`<button class="tile" data-crave="${d.id}"><div class="ph">${pic(d)}</div><b>${d.n}</b><span>−${fmt(d.k)} ккал</span><span>+${fmt(d.p)} ₽ в кармане</span></button>`).join("")}</div>
+    <button class="cta" data-go="menu">Всё меню «мимо рта» →</button>
+  </div>`;
+}
 function renderDiary(){
   const day=curDay(), log=S.log[day]||[], N=norm(), eaten=eatenOn(day), mimo=mimoOn(day);
   const left=N-eaten, C=2*Math.PI*62, frac=Math.min(eaten/N,1);
@@ -295,7 +317,7 @@ function renderDiary(){
      </div>
    </div>
    <div class="two snap"><label class="photo-btn"><input type="file" accept="image/*" id="photoIn" style="position:absolute;width:1px;height:1px;opacity:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото блюда</label><label class="photo-btn"><input type="file" accept="image/*" id="scanIn" style="position:absolute;width:1px;height:1px;opacity:0">${ICON_BC}Скан упаковки</label></div>
-   <button class="crave" data-go="menu">${LOGO_DARK}<span><b>Тянет на вредное?</b><span>Закажите мимо рта: курьер не приедет, а калории не прибавятся</span></span></button>
+   ${craveBlock(left)}
    ${MEALS.map((m,mi)=>{const items=log.map((x,i)=>({...x,i})).filter(x=>x.m===mi);const sum=items.reduce((a,x)=>a+x.k,0);return`
    <div class="sheet meal"><h2>${m}<small>${sum?fmt(sum)+" ккал":""}</small></h2>
      ${items.map(x=>`<div class="line"><button class="t" data-edit="${x.i}"><b>${esc(x.n)}</b><div class="kcal">${x.g?fmt(x.g)+" г · ":""}${fmt(x.k)} ккал</div></button><button class="del" data-del="${x.i}" aria-label="Удалить ${esc(x.n)}">✕</button></div>`).join("")}
@@ -344,6 +366,7 @@ function renderAdd(){
    <button class="cta" id="addFood">Добавить в дневник</button>`;
 }
 function addEntry(n,k,g,k100){
+  goal("add_food");
   const day=curDay();(S.log[day]=S.log[day]||[]).push({n,k:Math.round(k),g:g||0,m:addMeal,k100:k100||0});
   markDay();save();pick=null;q="";toast("Записано");go("diary");
 }
@@ -396,6 +419,7 @@ async function recognize(img){
   return {top:idx.map(i=>({i,p:Math.max(1,Math.round(ex[i]/Z*100))})),notFood:neg>food[idx[0]]};
 }
 async function startPhoto(file){
+  goal("photo");
   if(tab!=="add"){const hr=new Date().getHours();addMeal=hr<11?0:hr<16?1:hr<21?2:3}
   if(photo&&photo.url)URL.revokeObjectURL(photo.url);
   photo={url:URL.createObjectURL(file),status:"Смотрю на фото…",result:null,err:null};pick=null;go("photo");
@@ -489,6 +513,7 @@ async function readLabel(img,st){
   return r;
 }
 async function startScan(file){
+  goal("scan");
   if(tab!=="add"){const hr=new Date().getHours();addMeal=hr<11?0:hr<16?1:hr<21?2:3}
   if(scan&&scan.url)URL.revokeObjectURL(scan.url);
   scan={url:URL.createObjectURL(file),status:"Ищу штрихкод…",n:"",k100:"",g:100,src:"",code:""};pick=null;go("scan");
@@ -608,6 +633,7 @@ function renderCart(){
 }
 
 function startOrder(){
+  goal("mimo_order");
   const ci=cartInfo();
   const c=COURIERS[Math.floor(Math.random()*COURIERS.length)];
   order={start:Date.now(),items:{...cart},p:ci.p+149,k:ci.k,courier:c,excuse:EXCUSES[Math.floor(Math.random()*EXCUSES.length)],ids:Object.keys(cart),first:Object.keys(cart).map(id=>dish(id).e).join("")};
@@ -719,6 +745,7 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.crave){goal("crave_tile");const id=b.dataset.crave;if(!cart[id])cart[id]=1;return go(order?"track":"cart")}
   if(b.dataset.cat){cat=b.dataset.cat;return render()}
   if(b.dataset.add){cart[b.dataset.add]=(cart[b.dataset.add]||0)+1;if(tab==="menu")toast("Добавлено. Аппетит растёт, вес нет.");return render()}
   if(b.dataset.dec){if(--cart[b.dataset.dec]<=0)delete cart[b.dataset.dec];return render()}
