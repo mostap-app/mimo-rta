@@ -288,7 +288,7 @@ function renderDiary(){
        <div><span>Мимо рта</span><span class="mimo">${fmt(mimo)}</span></div>
      </div>
    </div>
-   <div class="two snap"><label class="photo-btn"><input type="file" accept="image/*" capture="environment" id="photoIn" style="position:absolute;width:1px;height:1px;opacity:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото блюда</label><label class="photo-btn"><input type="file" accept="image/*" capture="environment" id="scanIn" style="position:absolute;width:1px;height:1px;opacity:0">${ICON_BC}Скан упаковки</label></div>
+   <div class="two snap"><label class="photo-btn"><input type="file" accept="image/*" id="photoIn" style="position:absolute;width:1px;height:1px;opacity:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото блюда</label><label class="photo-btn"><input type="file" accept="image/*" id="scanIn" style="position:absolute;width:1px;height:1px;opacity:0">${ICON_BC}Скан упаковки</label></div>
    <button class="crave" data-go="menu">${LOGO_DARK}<span><b>Тянет на вредное?</b><span>Закажите мимо рта: курьер не приедет, а калории не прибавятся</span></span></button>
    ${MEALS.map((m,mi)=>{const items=log.map((x,i)=>({...x,i})).filter(x=>x.m===mi);const sum=items.reduce((a,x)=>a+x.k,0);return`
    <div class="sheet meal"><h2>${m}<small>${sum?fmt(sum)+" ккал":""}</small></h2>
@@ -309,7 +309,7 @@ function renderAdd(){
     $("#view").innerHTML=`
      <button class="back" data-go="diary">← Дневник</button>
      <h1>${MEALS[addMeal]}: что съели?</h1>
-     <div class="two snap"><label class="photo-btn"><input type="file" accept="image/*" capture="environment" id="photoIn" style="position:absolute;width:1px;height:1px;opacity:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото блюда</label><label class="photo-btn"><input type="file" accept="image/*" capture="environment" id="scanIn" style="position:absolute;width:1px;height:1px;opacity:0">${ICON_BC}Скан упаковки</label></div>
+     <div class="two snap"><label class="photo-btn"><input type="file" accept="image/*" id="photoIn" style="position:absolute;width:1px;height:1px;opacity:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото блюда</label><label class="photo-btn"><input type="file" accept="image/*" id="scanIn" style="position:absolute;width:1px;height:1px;opacity:0">${ICON_BC}Скан упаковки</label></div>
      <input class="search" id="q" type="search" placeholder="Поиск: борщ, гречка, латте…" aria-label="Поиск блюда" value="${esc(q)}" autocomplete="off">
      <div class="sheet res" id="res">${foodRows()}</div>
      <button class="ghost" data-pick="custom">Своё блюдо: ввести калории вручную</button>
