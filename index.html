@@ -104,6 +104,9 @@ nav.tabs button[aria-current="true"]{color:var(--accent-text)}
 .fineprint{margin:18px 8px 0;text-align:center;font-size:11px;line-height:1.4;color:var(--muted);opacity:.8}.fineprint a{color:inherit}
 .snap{margin-top:12px;gap:10px}.snap .photo-btn{margin-top:0;flex-direction:column;gap:6px;padding:12px 8px;font-size:14px;text-align:center}
 button.t{text-align:left;padding:0;background:none;border:0;cursor:pointer}button.t .kcal::after{content:" · изменить";color:var(--accent-text);font-weight:600}
+.daynav{display:flex;align-items:center;justify-content:space-between;gap:8px}.daynav h1{flex:1;text-align:center;margin:0}.daynav button{width:44px;height:44px;border-radius:50%;background:var(--surface);border:1px solid var(--line);font-size:24px;line-height:1;color:var(--ink)}.daynav button:disabled{opacity:.3}
+#undo{margin-left:10px;color:#ffb48f;font-weight:700;text-decoration:underline;background:none;border:0;padding:4px 0}
+.restore{display:flex;align-items:center;justify-content:center;cursor:pointer}
 .credits summary{font-weight:600;cursor:pointer;min-height:24px}
 .credits ol{margin:10px 0 0;padding-left:20px;font-size:12px;color:var(--muted)}
 .credits li{margin:4px 0}
@@ -228,10 +231,12 @@ const dish=id=>DISHES.find(x=>x.id==id);
 const $=s=>document.querySelector(s);
 const fmt=n=>Math.round(n).toLocaleString("ru-RU");
 const dk=d=>{d=d||new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+function dayTitle(k){const t=dk(),y=new Date();y.setDate(y.getDate()-1);if(k===t)return"Сегодня";if(k===dk(y))return"Вчера";return new Date(k+"T12:00:00").toLocaleDateString("ru-RU",{weekday:"short",day:"numeric",month:"long"})}
 function plural(n,a,b,c){n=Math.abs(n)%100;const m=n%10;if(n>10&&n<20)return c;if(m>1&&m<5)return b;if(m==1)return a;return c}
 
 let S=load();
-let photo=null, ortSess=null, EM=null, scan=null, ocrW=null, editIdx=null;
+let photo=null, ortSess=null, EM=null, scan=null, ocrW=null, editIdx=null, viewDay=null, undo=null;
+const curDay=()=>viewDay||dk();
 let cat="Всё", cart={}, tab="diary", order=S.active||null, addMeal=0, pick=null, q="";
 
 function load(){
@@ -243,7 +248,7 @@ function load(){
   }catch(e){return d}
 }
 function save(){try{localStorage.setItem("mimorta",JSON.stringify(S))}catch(e){}}
-function markDay(){const t=dk();if(!S.days.includes(t))S.days.push(t)}
+function markDay(){const t=curDay();if(!S.days.includes(t))S.days.push(t)}
 function streak(){
   const set=new Set(S.days);let n=0,d=new Date();
   if(!set.has(dk(d)))d.setDate(d.getDate()-1);
@@ -255,12 +260,13 @@ function eatenOn(day){return (S.log[day]||[]).reduce((a,x)=>a+x.k,0)}
 function mimoOn(day){return S.orders.filter(o=>o.day===day).reduce((a,o)=>a+o.k,0)}
 function totals(){return S.orders.reduce((a,o)=>({k:a.k+o.k,p:a.p+o.p,n:a.n+1}),{k:0,p:0,n:0})}
 function cartInfo(){let q=0,p=0,k=0;for(const id in cart){const d=dish(id);q+=cart[id];p+=d.p*cart[id];k+=d.k*cart[id]}return{q,p,k}}
-function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,Math.max(1800,t.length*55))}
+function toast(t,canUndo){const el=$("#toast");el.textContent=t;if(canUndo){const u=document.createElement("button");u.id="undo";u.textContent="Вернуть";el.append(" ",u)}el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{el.hidden=true;if(canUndo)undo=null},canUndo?5000:Math.max(1800,t.length*55))}
 function go(t){tab=t;window.scrollTo(0,0);render()}
 
 function render(){
   const s=streak(),sb=$("#streak");sb.hidden=s<2;sb.textContent=`🔥 ${s} ${plural(s,"день","дня","дней")}`;sb.setAttribute("aria-label",`Серия: ${s} ${plural(s,"день","дня","дней")} подряд с записями`);
   const group={diary:"diary",add:"diary",photo:"diary",scan:"diary",entry:"diary",setup:"diary",menu:"menu",cart:"menu",track:"menu",reward:"menu",me:"me"}[tab];
+  $("nav.tabs").hidden=tab==="setup"&&!S.profile;
   document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===group));
   const ci=cartInfo();
   $("#cartbar").hidden=!(tab==="menu"&&ci.q>0);
@@ -271,11 +277,11 @@ function render(){
 
 /* ---------- Дневник ---------- */
 function renderDiary(){
-  const day=dk(), log=S.log[day]||[], N=norm(), eaten=eatenOn(day), mimo=mimoOn(day);
+  const day=curDay(), log=S.log[day]||[], N=norm(), eaten=eatenOn(day), mimo=mimoOn(day);
   const left=N-eaten, C=2*Math.PI*62, frac=Math.min(eaten/N,1);
   const mimoList=S.orders.filter(o=>o.day===day);
   $("#view").innerHTML=`
-   <h1>Сегодня</h1>
+   <div class="daynav"><button data-day="-1" aria-label="Предыдущий день">‹</button><h1>${dayTitle(day)}</h1><button data-day="1" aria-label="Следующий день" ${day===dk()?"disabled":""}>›</button></div>
    ${S.profile?"":`<button class="addline" data-go="setup">Рассчитать мою норму калорий →</button>`}
    <div class="sheet today">
      <div class="ring" role="img" aria-label="Съедено ${fmt(eaten)} из ${fmt(N)} ккал">
@@ -331,14 +337,14 @@ function renderAdd(){
    <button class="back" data-back="1">← Назад</button>
    <h1>${f[0]}</h1>
    <div class="two"><div class="field"><label for="k100">Ккал на 100 г</label><input id="k100" type="number" inputmode="decimal" min="0" value="${f[1]}"></div><div class="field"><label for="grams">Сколько грамм</label><input id="grams" type="number" inputmode="numeric" min="1" value="${f[2]}"></div></div>
-   <p class="note">На упаковке другая калорийность? Поправьте цифру, приложение её запомнит.</p>
    <div class="quick">${[0.5,1,1.5,2].map(m=>`<button data-g="${Math.round(f[2]*m)}">${Math.round(f[2]*m)} г</button>`).join("")}</div>
+   <p class="note">На упаковке другая калорийность? Поправьте цифру, приложение её запомнит.</p>
    <div class="bigk" id="kc">${fmt(f[1]*f[2]/100)} ккал</div>
    <div class="field"><label for="ml">Приём пищи</label><select id="ml">${MEALS.map((m,i)=>`<option value="${i}" ${addMeal===i?"selected":""}>${m}</option>`).join("")}</select></div>
    <button class="cta" id="addFood">Добавить в дневник</button>`;
 }
 function addEntry(n,k,g,k100){
-  const day=dk();(S.log[day]=S.log[day]||[]).push({n,k:Math.round(k),g:g||0,m:addMeal,k100:k100||0});
+  const day=curDay();(S.log[day]=S.log[day]||[]).push({n,k:Math.round(k),g:g||0,m:addMeal,k100:k100||0});
   markDay();save();pick=null;q="";toast("Записано");go("diary");
 }
 
@@ -541,7 +547,7 @@ function guessName(data){
 
 /* ---------- Правка записи ---------- */
 function renderEntry(){
-  const e=(S.log[dk()]||[])[editIdx];if(!e){tab="diary";return renderDiary()}
+  const e=(S.log[curDay()]||[])[editIdx];if(!e){tab="diary";return renderDiary()}
   const k1=e.k100||(e.g?Math.round(e.k/e.g*100):0);
   $("#view").innerHTML=`
    <button class="back" data-go="diary">← Дневник</button>
@@ -698,12 +704,15 @@ function renderMe(){
      <div class="legend"><span style="--c:var(--ink)">Съедено</span><span style="--c:var(--accent)">Сверх нормы</span><span style="--c:var(--save)">Мимо рта</span></div>
    </div>
    <div class="sheet"><div class="tot"><span class="muted">Дневная норма</span><span>${fmt(N)} ккал</span></div><button class="ghost" data-go="setup">${S.profile?"Изменить данные":"Рассчитать норму"}</button></div>
+   <div class="two"><button class="ghost" id="backup">Сохранить копию</button><label class="ghost restore">Восстановить<input type="file" accept=".json,application/json" id="restoreIn" hidden></label></div>
+   <p class="note">Данные хранятся только в этом телефоне. Раз в неделю сохраняйте копию в «Файлы», чтобы ничего не потерять.</p>
    <button class="ghost" id="reset">Сбросить все данные</button>
    <p class="fineprint">Распознавание еды: MobileCLIP-S0 (Apple), <a href="MOBILECLIP_LICENSE.txt" target="_blank" rel="noopener">лицензия</a>. Фото блюд созданы ИИ.</p>`;
 }
 
 /* ---------- События ---------- */
-document.addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(!f)return;if(e.target.id==="photoIn")startPhoto(f);if(e.target.id==="scanIn")startScan(f);e.target.value=""});
+document.addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(!f)return;
+  if(e.target.id==="restoreIn"){f.text().then(t=>{const d=JSON.parse(t);if(!d||!d.log||!d.days)throw 0;S=Object.assign(load(),d);order=S.active||null;save();toast("Данные восстановлены");go("diary")}).catch(()=>toast("Это не файл копии «Мимо рта»"));e.target.value="";return}if(e.target.id==="photoIn")startPhoto(f);if(e.target.id==="scanIn")startScan(f);e.target.value=""});
 document.addEventListener("input",e=>{
   if(e.target.id==="q"){q=e.target.value;$("#res").innerHTML=foodRows()}
   if((e.target.id==="grams"||e.target.id==="k100")&&$("#kc")){$("#kc").textContent=fmt((+$("#k100").value||0)*(+$("#grams").value||0)/100)+" ккал"}
@@ -719,16 +728,18 @@ document.addEventListener("click",e=>{
   if(b.dataset.pick){pick=b.dataset.pick==="custom"?"custom":+b.dataset.pick;return go("add")}
   if(b.dataset.back){pick=null;return go("add")}
   if(b.dataset.g){const g=$("#grams");g.value=b.dataset.g;g.dispatchEvent(new Event("input",{bubbles:true}));return}
-  if(b.dataset.del){const day=dk();S.log[day].splice(+b.dataset.del,1);save();return render()}
+  if(b.dataset.del){const day=curDay(),i=+b.dataset.del,[x]=S.log[day].splice(i,1);save();render();undo=()=>{S.log[day].splice(i,0,x);save();render()};return toast(`Удалено: ${x.n}`,true)}
+  if(b.id==="undo"){const f=undo;undo=null;$("#toast").hidden=true;if(f)f();return}
+  if(b.dataset.day){const d=new Date((viewDay||dk())+"T12:00:00");d.setDate(d.getDate()+(+b.dataset.day));const k=dk(d);viewDay=k>=dk()?null:k;return render()}
   if((b.id==="addFood"||b.id==="addScan"||b.id==="addCustom")&&$("#ml"))addMeal=+$("#ml").value;
   if(b.id==="addFood"){const f=FOODS[pick];const g=+$("#grams").value||0,k1=+$("#k100").value||0;if(g<=0)return toast("Укажите граммы");if(k1<=0)return toast("Укажите калории на 100 г");if(k1!==f[1]){S.kfix=S.kfix||{};S.kfix[f[0]]=k1;f[1]=k1}return addEntry(f[0],k1*g/100,g,k1)}
   if(b.id==="addScan"){const n=$("#fn").value.trim()||"Продукт",k1=+$("#k100").value||0,g=+$("#grams").value||0;if(k1<=0)return toast("Укажите калории на 100 г");if(g<=0)return toast("Укажите граммы");rememberFood(n,k1,g,scan&&scan.code);return addEntry(n,k1*g/100,g,k1)}
   if(b.dataset.edit){editIdx=+b.dataset.edit;return go("entry")}
-  if(b.id==="saveEntry"){const e=S.log[dk()][editIdx];e.n=$("#fn").value.trim()||e.n;e.m=+$("#em").value;
+  if(b.id==="saveEntry"){const e=S.log[curDay()][editIdx];e.n=$("#fn").value.trim()||e.n;e.m=+$("#em").value;
     if(e.g){const k1=+$("#k100").value||0,g=+$("#grams").value||0;if(k1<=0||g<=0)return toast("Проверьте калории и граммы");e.k100=k1;e.g=g;e.k=Math.round(k1*g/100)}
     else{const k=+$("#ck").value||0;if(k<=0)return toast("Укажите калории");e.k=Math.round(k)}
     save();toast("Сохранено");return go("diary")}
-  if(b.id==="delEntry"){S.log[dk()].splice(editIdx,1);save();toast("Удалено");return go("diary")}
+  if(b.id==="delEntry"){const day=curDay(),i=editIdx,[x]=S.log[day].splice(i,1);save();go("diary");undo=()=>{S.log[day].splice(i,0,x);save();render()};return toast(`Удалено: ${x.n}`,true)}
   if(b.id==="addCustom"){const n=$("#cn").value.trim()||"Своё блюдо";const k=+$("#ck").value||0;if(k<=0)return toast("Укажите калории");return addEntry(n,k,0)}
   if(b.id==="saveProfile"){
     const sex=$("#sex").value,age=+$("#age").value,h=+$("#h").value,w=+$("#w").value,act=+$("#act").value,goal=+$("#goal").value;
@@ -739,6 +750,9 @@ document.addEventListener("click",e=>{
   }
   if(b.id==="skipProfile"){S.profile={sex:"f",age:35,h:168,w:75,act:1,goal:0,norm:2000};save();return go("diary")}
   if(b.id==="streak"){const n=streak();return toast(`Вы ${n} ${plural(n,"день","дня","дней")} подряд ведёте дневник. Кто записывает еду каждый день, худеет заметно успешнее. Не прерывайте серию!`)}
+  if(b.id==="backup"){const blob=new Blob([JSON.stringify(S)],{type:"application/json"}),name=`mimo-rta-${dk()}.json`,file=new File([blob],name,{type:"application/json"});
+    if(navigator.canShare&&navigator.canShare({files:[file]}))return navigator.share({files:[file]}).catch(()=>{});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();return}
   if(b.id==="cartBtn")return go("cart");
   if(b.id==="checkout")return startOrder();
   if(b.id==="skip"){order.start=Date.now()-TRIP_SEC*1000*.9;S.active=order;save();return render()}
@@ -753,6 +767,8 @@ setInterval(()=>{
 
 if(order)tab="track";else if(!S.profile)tab="setup";
 render();
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 
 </body></html>
