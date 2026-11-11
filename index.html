@@ -164,7 +164,7 @@ button.t{text-align:left;padding:0;background:none;border:0;cursor:pointer}butto
 <div class="app">
   <header>
     <div class="logo"><svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="84" r="36" fill="none" stroke="var(--ring)" stroke-width="20"/><path d="M12 88 H30 C48 88 46 172 100 172 C154 172 152 88 170 88 H176" fill="none" stroke="var(--route)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M164 70 L184 88 L164 106" fill="none" stroke="var(--route)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/></svg>мимо рта</div>
-    <div class="streak" id="streak">0 дней подряд</div>
+    <button class="streak" id="streak" hidden></button>
   </header>
   <main id="view"></main>
 </div>
@@ -255,11 +255,11 @@ function eatenOn(day){return (S.log[day]||[]).reduce((a,x)=>a+x.k,0)}
 function mimoOn(day){return S.orders.filter(o=>o.day===day).reduce((a,o)=>a+o.k,0)}
 function totals(){return S.orders.reduce((a,o)=>({k:a.k+o.k,p:a.p+o.p,n:a.n+1}),{k:0,p:0,n:0})}
 function cartInfo(){let q=0,p=0,k=0;for(const id in cart){const d=dish(id);q+=cart[id];p+=d.p*cart[id];k+=d.k*cart[id]}return{q,p,k}}
-function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,1800)}
+function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,Math.max(1800,t.length*55))}
 function go(t){tab=t;window.scrollTo(0,0);render()}
 
 function render(){
-  const s=streak();$("#streak").textContent=`${s} ${plural(s,"день","дня","дней")} подряд`;
+  const s=streak(),sb=$("#streak");sb.hidden=s<2;sb.textContent=`🔥 ${s} ${plural(s,"день","дня","дней")}`;sb.setAttribute("aria-label",`Серия: ${s} ${plural(s,"день","дня","дней")} подряд с записями`);
   const group={diary:"diary",add:"diary",photo:"diary",scan:"diary",entry:"diary",setup:"diary",menu:"menu",cart:"menu",track:"menu",reward:"menu",me:"me"}[tab];
   document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===group));
   const ci=cartInfo();
@@ -738,6 +738,7 @@ document.addEventListener("click",e=>{
     S.profile={sex,age,h,w,act,goal,norm:n};save();toast("Ваша норма: "+fmt(n)+" ккал в день");return go("diary");
   }
   if(b.id==="skipProfile"){S.profile={sex:"f",age:35,h:168,w:75,act:1,goal:0,norm:2000};save();return go("diary")}
+  if(b.id==="streak"){const n=streak();return toast(`Вы ${n} ${plural(n,"день","дня","дней")} подряд ведёте дневник. Кто записывает еду каждый день, худеет заметно успешнее. Не прерывайте серию!`)}
   if(b.id==="cartBtn")return go("cart");
   if(b.id==="checkout")return startOrder();
   if(b.id==="skip"){order.start=Date.now()-TRIP_SEC*1000*.9;S.active=order;save();return render()}
