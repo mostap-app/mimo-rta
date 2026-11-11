@@ -464,8 +464,8 @@ async function readLabel(img,st){
     ocrW=await Tesseract.createWorker("rus",1,{workerPath:base+"worker.min.js",corePath:base,langPath:base.replace(/\/$/,""),gzip:true});
   }
   st("Читаю этикетку…");
-  const {data}=await ocrW.recognize(toCanvas(img,2000));
-  return parseLabel(data.text||"");
+  const {data}=await ocrW.recognize(toCanvas(img,2000),{},{text:true,blocks:true});
+  const r=parseLabel(data.text||"");r.n=guessName(data);return r;
 }
 async function startScan(file){
   if(tab!=="add"){const hr=new Date().getHours();addMeal=hr<11?0:hr<16?1:hr<21?2:3}
@@ -507,6 +507,18 @@ function renderScan(){
    <div class="bigk" id="kc">${fmt((+scan.k100||0)*scan.g/100)} ккал</div>
    <button class="cta" id="addScan">Добавить в «${MEALS[addMeal]}»</button>
    <p class="note">Совет: лучше всего фотографировать штрихкод крупно, а если его нет в базе, то таблицу «Пищевая ценность».</p>`}`;
+}
+
+function guessName(data){
+  // название обычно самая крупная и чётко прочитанная строка вверху этикетки
+  const bad=/ценност|состав|белк|жир|углев|масс|срок|хран|изготов|ккал|кдж|гост|претенз|адрес|вернём|продукт готов/i;
+  const lines=[];(data.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>lines.push(l))));
+  const clean=l=>{const seg=[];for(const w of l.words||[]){if(/[|]/.test(w.text)&&seg.length)break;const t=w.text.replace(/[^А-ЯЁа-яё0-9%,.-]/g,"");if(w.confidence>=60&&/[А-ЯЁа-яё]{3,}/.test(t))seg.push(t);else if(seg.length)break}return seg.join(" ")};
+  let best=null,bi=-1;
+  lines.forEach((l,i)=>{if(l.confidence<55||bad.test(l.text))return;const t=clean(l);if(t.length<4)return;const h=l.bbox.y1-l.bbox.y0;if(!best||h>best.h*1.15||(h>=best.h*0.87&&l.bbox.y0<best.y)){best={t,h,y:l.bbox.y0};bi=i}});
+  if(!best)return"";
+  const nx=lines[bi+1];if(nx&&nx.confidence>=55&&!bad.test(nx.text)){const h=nx.bbox.y1-nx.bbox.y0,t=clean(nx);if(t&&h>=best.h*0.7&&(best.t+" "+t).length<=45)best.t+=" "+t}
+  const n=best.t.replace(/[,.-]+$/,"").trim();return n.length>45?n.slice(0,45):n;
 }
 
 /* ---------- Правка записи ---------- */
