@@ -537,7 +537,7 @@ const wordsOf=t=>nz(t).replace(/[«»"().,;:!?%-]/g," ").split(/\s+/).filter(Boo
 function wMatch(a,b){const L=Math.min(a.length,b.length);let c=0;while(c<L&&a[c]===b[c])c++;const need=L<=4?Math.max(2,L-1):Math.min(5,L-1);return c>=need?c/Math.max(a.length,b.length):0}
 let FW=null;
 function parseSay(text){
-  if(!FW||FW.length!==FOODS.length)FW=FOODS.map(f=>wordsOf(f[0]).filter(w=>w.length>1&&!/^\d/.test(w)&&!STOPW.has(w)));
+  if(!FW||FW.length!==FOODS.length)FW=FOODS.map(f=>wordsOf(f[0].replace(/\s+без\s+[а-яё]+/i,"")).filter(w=>w.length>1&&!/^\d/.test(w)&&!STOPW.has(w)));
   const segs=nz(text).replace(/(\d),(\d)/g,"$1.$2").split(/[,;.\n]|\s+и\s+|\s+плюс\s+|\s+потом\s+|\s+ещ[её]\s+|\s+а также\s+/).map(x=>x.trim()).filter(Boolean);
   const clean=seg=>wordsOf(seg).filter(w=>!STOPW.has(w)&&!/^\d/.test(w)&&!(w in NUMW));
   const bestFood=cw=>{let best=-1,bs=0;if(!cw.length)return best;
@@ -567,22 +567,31 @@ function parseSay(text){
 let sayText="",rec=null;
 function saySubmit(){
   const t=($("#sayT")?$("#sayT").value:sayText).trim();if(!t)return toast("Скажите или напишите, что съели");
-  if(rec){try{rec.stop()}catch(e){}rec=null}
+  if(rec){const r=rec;rec=null;r.kill()}
   goal("say");if(photo&&photo.url)URL.revokeObjectURL(photo.url);
   photo={url:null,text:t,status:"",result:{top:[],notFood:false},err:null,sel:parseSay(t),q:""};sayText="";pick=null;go("photo");
 }
 function sayMic(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){$("#sayT").focus();return toast("Нажмите на микрофон на клавиатуре телефона и говорите")}
-  if(rec){try{rec.stop()}catch(e){}return}
-  const base=$("#sayT").value.trim();
+  if(rec){rec.finish(true);return}
+  const base=$("#sayT").value.trim();let heard="",timer=null,done=false;
+  const ui=(on,hint)=>{const m=$("#sayMic"),h=$("#sayHint");if(m)m.classList.toggle("rec",on);if(h)h.textContent=hint};
+  const arm=ms=>{clearTimeout(timer);timer=setTimeout(()=>r.finish(false),ms)};
+  let r;
   try{
-    rec=new SR();rec.lang="ru-RU";rec.interimResults=true;rec.continuous=true;
-    rec.onresult=e=>{let t="";for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript+" ";const el=$("#sayT");if(el){el.value=(base?base+", ":"")+t.trim();sayText=el.value}};
-    rec.onerror=e=>{rec=null;const b=$("#sayMic");if(b)b.classList.remove("rec");const el=$("#sayT");if(el)el.focus();toast(e.error==="not-allowed"?"Нет доступа к микрофону. Нажмите на микрофон на клавиатуре":"Не расслышал. Нажмите на микрофон на клавиатуре или напишите")};
-    rec.onend=()=>{rec=null;const b=$("#sayMic");if(b){b.classList.remove("rec");$("#sayHint").textContent="Нажмите и говорите"}};
-    rec.start();$("#sayMic").classList.add("rec");$("#sayHint").textContent="Слушаю… Нажмите ещё раз, когда закончите";
-  }catch(e){rec=null;$("#sayT").focus();toast("Нажмите на микрофон на клавиатуре телефона и говорите")}
+    r=new SR();rec=r;r.lang="ru-RU";r.interimResults=true;r.continuous=false;
+    // Завершаем сами: при тишине, по кнопке или по таймеру. Не ждём телефон, он может не прислать конец.
+    r.finish=byUser=>{if(done)return;done=true;clearTimeout(timer);try{r.abort()}catch(e){}if(rec===r)rec=null;if(tab!=="say")return;
+      if(heard.trim()){ui(false,"Нажмите и говорите");return saySubmit()}
+      ui(false,byUser?"Нажмите и говорите":"Ничего не услышал. Нажмите и скажите ещё раз")};
+    r.kill=()=>{done=true;clearTimeout(timer);try{r.abort()}catch(e){}};
+    r.onresult=e=>{let t="";for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript+" ";heard=t;const el=$("#sayT");if(el){el.value=(base?base+", ":"")+t.trim();sayText=el.value}arm(2500)};
+    r.onerror=e=>{if(e.error==="not-allowed"||e.error==="service-not-allowed"){done=true;clearTimeout(timer);if(rec===r)rec=null;ui(false,"Нажмите и говорите");const el=$("#sayT");if(el)el.focus();return toast("Нет доступа к микрофону. Можно диктовать через микрофон на клавиатуре")}r.finish(false)};
+    r.onend=()=>r.finish(false);
+    r.start();ui(true,"Слушаю… Говорите");arm(7000);
+    setTimeout(()=>r.finish(false),25000);
+  }catch(e){rec=null;ui(false,"Нажмите и говорите");$("#sayT").focus();toast("Нажмите на микрофон на клавиатуре телефона и говорите")}
 }
 function renderSay(){
   $("#view").innerHTML=`
