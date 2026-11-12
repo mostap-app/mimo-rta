@@ -482,7 +482,7 @@ function renderSetup(){
    <div class="field" id="twF" ${p.goal==1?"hidden":""}><label for="tw">Желаемый вес, кг</label><input id="tw" type="number" inputmode="decimal" value="${p.tw||(p.goal==2?p.w+5:p.w-5)}"></div>
    <button class="cta" id="saveProfile">Рассчитать</button>
    ${S.profile?"":`<button class="ghost" id="skipProfile">Пропустить, взять 2 000 ккал</button>`}
-   <p class="note">Формула Миффлина – Сан Жеора. Это ориентир, а не медицинская рекомендация.</p>`;
+   <p class="note">Это ориентир, а не медицинская рекомендация.</p>`;
 }
 
 /* ---------- Распознавание по фото (в телефоне, без сервера) ---------- */
@@ -491,10 +491,10 @@ async function loadModel(){
   if(ortSess)return ortSess;
   if(!window.ort)throw new Error("движок распознавания не загрузился");
   ort.env.wasm.wasmPaths=new URL("./",location.href).href;ort.env.wasm.numThreads=1;
-  setPhotoStatus("Загружаю модель распознавания (23 МБ, один раз за сеанс)…");
+  setPhotoStatus("Смотрю на фото…");
   const parts=await Promise.all(["model.part1.wasm","model.part2.wasm"].map(u=>fetch(u).then(r=>{if(!r.ok)throw new Error("файл модели "+r.status);return r.arrayBuffer()})));
   const buf=new Uint8Array(parts[0].byteLength+parts[1].byteLength);buf.set(new Uint8Array(parts[0]),0);buf.set(new Uint8Array(parts[1]),parts[0].byteLength);
-  setPhotoStatus("Запускаю модель…");
+  setPhotoStatus("Смотрю на фото…");
   ortSess=await ort.InferenceSession.create(buf,{executionProviders:["wasm"]});
   return ortSess;
 }
@@ -624,7 +624,7 @@ function renderPhoto(){
    <h1>${photo.url?"Что на фото?":"Проверьте список"}</h1>
    ${photo.url?`<img class="shot" src="${photo.url}" alt="Ваше фото еды">`:`<p class="lead">«${esc(photo.text||"")}»</p>`}
    ${photo.status?`<div class="status" role="status"><span class="spin"></span>${photo.status}</div>`:""}
-   ${photo.err?`<div class="sheet"><b>Не получилось распознать.</b><p class="note">${esc(photo.err)}</p></div>`:""}
+   ${photo.err?`<div class="sheet"><b>Не получилось распознать фото.</b><p class="note">Попробуйте ещё раз при хорошем свете или найдите блюдо через поиск.</p></div>`:""}
    ${r||photo.err?`<div class="sheet"><h2>${!photo.sel.length?"Не нашёл блюд. Найдите через поиск:":r&&r.notFood?"Не уверен, что это еда. Отметьте сами:":"Отметьте всё, что съели"}</h2>
      <p class="note">Галочки можно ставить на несколько блюд. Граммы поправьте на глаз.</p>
      <div id="prows">${photoRows()}</div>
@@ -692,7 +692,7 @@ function parseLabel(raw){
 async function readLabel(img,st){
   await loadScript("scan/tesseract.min.js");
   if(!ocrW){
-    st("Читаю этикетку… Первый раз загружаю распознавание текста (~7 МБ), дальше будет быстрее");
+    st("Читаю этикетку…");
     const base=new URL("scan/",location.href).href;
     ocrW=await Tesseract.createWorker("rus",1,{workerPath:base+"worker.min.js",corePath:base,langPath:base.replace(/\/$/,""),gzip:true});
   }
@@ -720,17 +720,17 @@ async function startScan(file){
       scan.code=code;
       const mine=(S.my||[]).find(x=>x.code===code);
       if(mine){Object.assign(scan,{n:mine.n,k100:mine.k100,g:mine.g||100,gOk:!!mine.g,src:"Этот продукт вы уже добавляли, данные подставлены."});return st("")}
-      st("Штрихкод "+code+". Ищу продукт в базе…");
+      st("Ищу продукт…");
       const p=await offLookup(code).catch(()=>null);
       if(p&&p.k100){Object.assign(scan,p,{gOk:!!p.g,src:"Нашли по штрихкоду в базе продуктов. Проверьте граммы."});return st("")}
       if(p&&p.n){scan.n=p.n;scan.g=p.g||100;scan.gOk=!!p.g}
     }
-    st(code?"Продукта нет в базе. Читаю этикетку…":"Штрихкод не нашёл. Читаю этикетку…");
+    st("Читаю этикетку…");
     const r=await readLabel(img,st);
     if(r.k100){scan.k100=r.k100;scan.src="Прочитали калорийность с этикетки. Сверьте цифру с упаковкой."}
     else scan.src="Не смог прочитать калорийность. Впишите её с упаковки, и в следующий раз этот продукт найдётся сам.";
     if(r.g&&!scan.gOk){scan.g=r.g;scan.gOk=true}if(r.n&&!scan.n)scan.n=r.n;
-  }catch(e){scan.src="Не получилось распознать ("+(e.message||e)+"). Впишите данные с упаковки."}
+  }catch(e){scan.src="Не получилось прочитать упаковку. Впишите данные с неё вручную."}
   st("");
 }
 function renderScan(){
@@ -935,7 +935,7 @@ function renderMe(){
    <div class="two"><button class="ghost" id="backup">Сохранить копию</button><label class="ghost restore">Восстановить<input type="file" accept=".json,application/json" id="restoreIn" hidden></label></div>
    <p class="note">Данные хранятся только в этом телефоне. Раз в неделю сохраняйте копию в «Файлы», чтобы ничего не потерять.</p>
    <button class="ghost" id="reset">Сбросить все данные</button>
-   <p class="fineprint">Распознавание еды: MobileCLIP-S0 (Apple), <a href="MOBILECLIP_LICENSE.txt" target="_blank" rel="noopener">лицензия</a>. Фото блюд созданы ИИ.</p>`;
+   `;
 }
 
 /* ---------- События ---------- */
