@@ -54,7 +54,7 @@ h2{font-size:17px;font-weight:700}
 .price{font-weight:700;font-variant-numeric:tabular-nums}
 .kcal{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .add{width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:20px;line-height:1;display:grid;place-items:center;font-weight:700}
-.qty{min-width:36px;height:36px;padding:0 10px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;display:grid;place-items:center;font-size:14px}
+.qty{position:relative;width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:20px;line-height:1;display:grid;place-items:center;font-weight:700}.qty i{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--surface);color:var(--accent-text);border:1.5px solid var(--accent);font-style:normal;font-size:11px;line-height:17px;text-align:center}
 .cartbar{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:6;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .cartbar button{max-width:448px;margin:0 auto;width:100%;display:flex;justify-content:space-between;align-items:center;background:var(--accent);color:#fff;border-radius:18px;padding:14px 18px;font-weight:700;box-shadow:0 10px 30px -10px rgba(244,81,30,.65)}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -109,9 +109,9 @@ button.t{text-align:left;padding:0;background:none;border:0;cursor:pointer}butto
 .restore{display:flex;align-items:center;justify-content:center;cursor:pointer}
 .crave2 h2{margin:0;font-family:var(--display);font-size:18px}.crave2 .note{margin-top:4px}
 .rail{display:flex;gap:10px;overflow-x:auto;margin:12px -16px 0;padding:0 16px 4px;scroll-snap-type:x mandatory;scroll-padding:0 16px;scrollbar-width:none}.rail::-webkit-scrollbar{display:none}
-.tile{flex:0 0 136px;text-align:left;background:var(--bg);border-radius:16px;padding:0 0 10px;overflow:hidden;scroll-snap-align:start;border:1px solid var(--line)}
-.tile .ph{height:92px;background:var(--plate);display:grid;place-items:center;font-size:40px;overflow:hidden}.tile .ph img{width:100%;height:100%;object-fit:cover}
-.tile b{display:block;font-size:13px;line-height:1.25;padding:8px 10px 4px;min-height:44px}.tile span{display:block;font-size:12px;font-weight:700;color:var(--save-text);padding:0 10px}
+.tile{flex:0 0 140px;display:flex;flex-direction:column;text-align:left;background:var(--surface);border-radius:16px;padding:0 0 10px;overflow:hidden;scroll-snap-align:start;border:1px solid var(--line)}
+.tile .ph{width:100%;aspect-ratio:400/328;background:#fdf5e8;display:grid;place-items:center;font-size:40px;overflow:hidden}.tile .ph img{width:100%;height:100%;object-fit:contain;display:block}
+.tile b{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:13px;line-height:1.3;padding:8px 10px 0;height:calc(3.9em + 8px);margin-bottom:6px}.tile span{display:block;font-size:12px;line-height:1.4;font-weight:700;color:var(--save-text);padding:0 10px;white-space:nowrap}
 .crave2 .cta{margin-top:12px}
 .prow{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);padding:8px 0}.prow:last-child{border-bottom:0}
 .chk{flex:1;min-width:0;display:flex;align-items:center;gap:12px;text-align:left;min-height:48px}.chk>span{min-width:0}.chk b{display:block;font-weight:600}
@@ -122,10 +122,10 @@ button.t{text-align:left;padding:0;background:none;border:0;cursor:pointer}butto
 .mic{display:grid;place-items:center;width:96px;height:96px;border-radius:50%;background:var(--accent);color:#fff;margin:22px auto 6px;box-shadow:0 10px 30px -10px rgba(244,81,30,.7)}.mic svg{width:40px;height:40px}
 .mic.rec{animation:pulse 1.2s infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(244,81,30,.5)}100%{box-shadow:0 0 0 26px rgba(244,81,30,0)}}
 textarea.search{font:inherit;font-size:16px;resize:none;color:inherit}
-.goalc{padding:14px 16px}.water{padding:14px 16px}.wbtns{display:flex;gap:6px;flex:none}.wbtn:disabled{opacity:.35}
+.goalc{padding:14px 16px}.water{padding:14px 16px}.wbtns{display:flex;gap:6px;flex:none;align-items:center}.wmin{padding:0;width:40px;font-size:20px}.wbtn:disabled{opacity:.35}
 .cups{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}.cups i{width:18px;height:22px;border-radius:3px 3px 6px 6px;border:2px solid #9fd2f0;background:var(--surface)}.cups i.on{background:#5bb8eb;border-color:#5bb8eb}
-.invite{display:flex;align-items:center;gap:12px;width:100%;text-align:left}.invite b{display:block}.invite .ie{font-size:28px;flex:none}.gset{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left}.gset b{display:block}.gtop{display:flex;align-items:center;justify-content:space-between;gap:10px}.gl{font-weight:700}
-.wbtn{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:8px 14px;font-weight:700;color:var(--accent-text);min-height:40px}
+.invite{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px 12px;width:100%;text-align:left}.invite b{display:block}.invite .ie{font-size:28px}.invite .wbtn{grid-column:1/-1;width:100%}.gset{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left}.gset b{display:block}.gtop{display:flex;align-items:center;justify-content:space-between;gap:10px}.gl{font-weight:700}
+.wbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;line-height:1;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:0 14px;height:40px;min-width:40px;font-weight:700;font-size:14px;color:var(--accent-text);white-space:nowrap}
 .gbar{height:8px;border-radius:4px;background:var(--bg);margin-top:10px;overflow:hidden}.gbar i{display:block;height:100%;background:var(--save);border-radius:4px}
 .plan .pk{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 0}.plan .pk b{font-family:var(--display);font-size:18px}
 .pcurve{width:100%;height:auto;margin-top:10px;overflow:visible}
@@ -291,8 +291,8 @@ function eatenOn(day){return (S.log[day]||[]).reduce((a,x)=>a+x.k,0)}
 function mimoOn(day){return S.orders.filter(o=>o.day===day).reduce((a,o)=>a+o.k,0)}
 function totals(){return S.orders.reduce((a,o)=>({k:a.k+o.k,p:a.p+o.p,n:a.n+1}),{k:0,p:0,n:0})}
 function cartInfo(){let q=0,p=0,k=0;for(const id in cart){const d=dish(id);q+=cart[id];p+=d.p*cart[id];k+=d.k*cart[id]}return{q,p,k}}
-function toast(t,canUndo){const el=$("#toast");el.textContent=t;if(canUndo){const u=document.createElement("button");u.id="undo";u.textContent="Вернуть";el.append(" ",u)}el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{el.hidden=true;if(canUndo)undo=null},canUndo?5000:Math.max(1800,t.length*55))}
-function go(t){tab=t;window.scrollTo(0,0);render()}
+function toast(t,canUndo){toast.at=Date.now();const el=$("#toast");el.textContent=t;if(canUndo){const u=document.createElement("button");u.id="undo";u.textContent="Вернуть";el.append(" ",u)}el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{el.hidden=true;if(canUndo)undo=null},canUndo?5000:Math.max(1800,t.length*55))}
+function go(t){if(Date.now()-(toast.at||0)>400)$("#toast").hidden=true;tab=t;window.scrollTo(0,0);render()}
 
 function render(){
   const s=streak(),sb=$("#streak");sb.hidden=s<2;sb.textContent=`🔥 ${s} ${plural(s,"день","дня","дней")}`;sb.setAttribute("aria-label",`Серия: ${s} ${plural(s,"день","дня","дней")} подряд с записями`);
@@ -315,7 +315,7 @@ function craveBlock(left){
   return `<div class="sheet crave2">
     <h2>${title}</h2>
     <p class="note">Закажите понарошку: курьер не приедет, а калории и деньги останутся при вас.</p>
-    <div class="rail">${ids.map(dish).map(d=>`<button class="tile" data-crave="${d.id}"><div class="ph">${pic(d)}</div><b>${d.n}</b><span>−${fmt(d.k)} ккал</span><span>+${fmt(d.p)} ₽ в кармане</span></button>`).join("")}</div>
+    <div class="rail">${ids.map(dish).map(d=>`<button class="tile" data-crave="${d.id}"><div class="ph">${pic(d)}</div><b>${d.n}</b><span>−${fmt(d.k)} ккал</span><span>+${fmt(d.p)} ₽ сэкономлено</span></button>`).join("")}</div>
     <button class="cta" data-go="menu">Всё меню «мимо рта» →</button>
   </div>`;
 }
@@ -407,7 +407,7 @@ const fdate=d=>d.toLocaleDateString("ru-RU",{day:"numeric",month:"long"});
 function waterNorm(){const w=curW()||70;return Math.max(1500,Math.min(3500,Math.round(w*30/250)*250))}
 function waterCard(day){const ml=(S.water||{})[day]||0,N=waterNorm(),cups=N/250,done=Math.min(cups,Math.round(ml/250));
   return `<div class="sheet water"><div class="gtop"><div><div class="gl">💧 Вода ${(ml/1000).toLocaleString("ru-RU",{maximumFractionDigits:2})} л <span class="muted" style="font-weight:500">из ${(N/1000).toLocaleString("ru-RU",{maximumFractionDigits:2})} л</span></div><div class="kcal">${ml>=N?"Норма выполнена 👍":"Стакан = 250 мл"}</div></div>
-   <div class="wbtns"><button class="wbtn" data-wat="-250" aria-label="Убрать стакан" ${ml?"":"disabled"}>−</button><button class="wbtn" data-wat="250">+ стакан</button></div></div>
+   <div class="wbtns"><button class="wbtn wmin" data-wat="-250" aria-label="Убрать стакан" ${ml?"":"disabled"}>−</button><button class="wbtn" data-wat="250">+ стакан</button></div></div>
    <div class="cups" aria-hidden="true">${Array.from({length:cups},(_,i)=>`<i class="${i<done?"on":""}"></i>`).join("")}</div></div>`}
 const SHARE_URL="https://mostap-app.github.io/mimo-rta/";
 function share(text){goal("share");const d={title:"Мимо рта",text,url:SHARE_URL};
@@ -789,7 +789,7 @@ function renderMenu(){
          <div class="name">${d.n}</div>
          <div class="kcal">${fmt(d.k)} ккал</div>
          <div class="row"><span class="price">${fmt(d.p)} ₽</span>
-         ${cart[d.id]?`<button class="qty" data-add="${d.id}" aria-label="Добавить ещё">${cart[d.id]} +</button>`:`<button class="add" data-add="${d.id}" aria-label="Добавить ${d.n}">+</button>`}</div>
+         ${cart[d.id]?`<button class="qty" data-add="${d.id}" aria-label="Добавить ещё">+<i>${cart[d.id]}</i></button>`:`<button class="add" data-add="${d.id}" aria-label="Добавить ${d.n}">+</button>`}</div>
        </div>
      </div>`).join("")}</div>`;
 }
