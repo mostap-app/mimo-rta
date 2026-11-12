@@ -682,7 +682,9 @@ function parseLabel(raw){
   if(!k){const num=re=>{const m=t.match(re);return m?+m[1]:NaN};
     const P=num(/белк[а-я]*[^\d]{0,12}(\d{1,2}(?:\.\d+)?)/),F=num(/жир[а-я]*[^\d]{0,12}(\d{1,2}(?:\.\d+)?)/),C=num(/углевод[а-я]*[^\d]{0,12}(\d{1,2}(?:\.\d+)?)/);
     if(!isNaN(P)&&!isNaN(F)&&!isNaN(C)){const v=4*P+9*F+4*C;if(ok(v))k=v}}
-  let g=0;const gm=t.match(/(?:масса нетто|нетто|объ[её]м|масса)[^\d]{0,20}(\d+(?:\.\d+)?\s*(?:кг|гр|г|мл|л))/);if(gm)g=parseQty(gm[1]);
+  let g=0;const tq=t.replace(/(\d)\s*(?:r|г)\s*р?\.?(?=[^a-zа-я]|$)/g,"$1 г ");
+  const gm=tq.match(/(?:нетт?о?|вес|масса|объ[её]м|масса нетто)[^\d]{0,25}(\d+(?:\.\d+)?\s*(?:кг|гр|г|мл|л))(?![a-zа-я])/);if(gm)g=parseQty(gm[1]);
+  if(!g){const re2=/(?:^|[^\d.])(\d{2,4}(?:\.\d+)?)\s*(кг|г|мл|л)(?![a-zа-я])/g;let mm;while((mm=re2.exec(tq))){const pre=tq.slice(Math.max(0,mm.index-8),mm.index+1);if(/(на|в)\s*$/.test(pre.trim().replace(/\d+$/,""))||/на\s*1?0?0?\s*$/.test(pre))continue;const v=parseQty(mm[1]+" "+mm[2]);if(v>=20&&v!==100&&v<=3000){g=v;break}}}
   const bad=/ценност|состав|белк|жир|углев|масс|срок|хран|изготов|ккал|кдж|гост|ту /;
   const n=(raw.split(/\n/).map(x=>x.trim()).find(x=>x.length>=6&&x.length<=45&&/^[А-ЯЁа-яё]/.test(x)&&(x.match(/[А-ЯЁа-яё]{3,}/g)||[]).length>=2&&!bad.test(x.toLowerCase()))||"").replace(/[^А-ЯЁа-яё0-9 ,.%«»"-]/g,"").trim();
   return {k100:k?Math.round(k):0,g,n};
@@ -697,7 +699,7 @@ async function readLabel(img,st){
   st("Читаю этикетку…");
   const {data}=await ocrW.recognize(toCanvas(img,2000),{},{text:true,blocks:true});
   const r=parseLabel(data.text||"");r.n=guessName(data);
-  if(!r.k100){
+  if(!r.k100||!r.g){
     st("Читаю этикетку ещё раз, внимательнее…");
     const d2=(await ocrW.recognize(contrast(toCanvas(img,2800)))).data;
     const r2=parseLabel((d2.text||"")+"\n"+(data.text||""));if(r2.k100)r.k100=r2.k100;if(!r.g)r.g=r2.g;
@@ -717,17 +719,17 @@ async function startScan(file){
     if(code){
       scan.code=code;
       const mine=(S.my||[]).find(x=>x.code===code);
-      if(mine){Object.assign(scan,{n:mine.n,k100:mine.k100,g:mine.g||100,src:"Этот продукт вы уже добавляли, данные подставлены."});return st("")}
+      if(mine){Object.assign(scan,{n:mine.n,k100:mine.k100,g:mine.g||100,gOk:!!mine.g,src:"Этот продукт вы уже добавляли, данные подставлены."});return st("")}
       st("Штрихкод "+code+". Ищу продукт в базе…");
       const p=await offLookup(code).catch(()=>null);
-      if(p&&p.k100){Object.assign(scan,p,{src:"Нашли по штрихкоду в базе продуктов. Проверьте граммы."});return st("")}
-      if(p&&p.n){scan.n=p.n;scan.g=p.g}
+      if(p&&p.k100){Object.assign(scan,p,{gOk:!!p.g,src:"Нашли по штрихкоду в базе продуктов. Проверьте граммы."});return st("")}
+      if(p&&p.n){scan.n=p.n;scan.g=p.g||100;scan.gOk=!!p.g}
     }
     st(code?"Продукта нет в базе. Читаю этикетку…":"Штрихкод не нашёл. Читаю этикетку…");
     const r=await readLabel(img,st);
     if(r.k100){scan.k100=r.k100;scan.src="Прочитали калорийность с этикетки. Сверьте цифру с упаковкой."}
     else scan.src="Не смог прочитать калорийность. Впишите её с упаковки, и в следующий раз этот продукт найдётся сам.";
-    if(r.g&&!code)scan.g=r.g;if(r.n&&!scan.n)scan.n=r.n;
+    if(r.g&&!scan.gOk){scan.g=r.g;scan.gOk=true}if(r.n&&!scan.n)scan.n=r.n;
   }catch(e){scan.src="Не получилось распознать ("+(e.message||e)+"). Впишите данные с упаковки."}
   st("");
 }
@@ -742,6 +744,7 @@ function renderScan(){
    <div class="field"><label for="fn">Название</label><input id="fn" value="${esc(scan.n)}" placeholder="Как называется продукт? Например, йогурт клубничный"></div>
    <div class="two"><div class="field"><label for="k100">Ккал на 100 г</label><input id="k100" type="number" inputmode="decimal" min="0" value="${scan.k100}" placeholder="с упаковки"></div>
    <div class="field"><label for="grams">Сколько грамм</label><input id="grams" type="number" inputmode="numeric" min="1" value="${scan.g}"></div></div>
+   <p class="note" style="margin-top:-6px">${scan.gOk?`Вес взяли с упаковки: ${fmt(scan.g)} г. Съели не всё — поправьте.`:`Вес на упаковке не прочитали, стоит 100 г. Впишите, сколько съели.`}</p>
    <div class="bigk" id="kc">${fmt((+scan.k100||0)*scan.g/100)} ккал</div>
    <div class="field"><label for="ml">Приём пищи</label><select id="ml">${MEALS.map((m,i)=>`<option value="${i}" ${addMeal===i?"selected":""}>${m}</option>`).join("")}</select></div>
    <button class="cta" id="addScan">Добавить в дневник</button>
