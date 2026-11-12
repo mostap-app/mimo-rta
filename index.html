@@ -124,7 +124,7 @@ button.t{text-align:left;padding:0;background:none;border:0;cursor:pointer}butto
 textarea.search{font:inherit;font-size:16px;resize:none;color:inherit}
 .goalc{padding:14px 16px}.water{padding:14px 16px}.wbtns{display:flex;gap:6px;flex:none;align-items:center}.wmin{padding:0;width:40px;font-size:20px}.wbtn:disabled{opacity:.35}
 .cups{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}.cups i{width:18px;height:22px;border-radius:3px 3px 6px 6px;border:2px solid #9fd2f0;background:var(--surface)}.cups i.on{background:#5bb8eb;border-color:#5bb8eb}
-.invite{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px 12px;width:100%;text-align:left}.invite b{display:block}.invite .ie{font-size:28px}.invite .wbtn{grid-column:1/-1;width:100%}.gset{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left}.gset b{display:block}.gtop{display:flex;align-items:center;justify-content:space-between;gap:10px}.gl{font-weight:700}
+.invite{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px 12px;width:100%;text-align:left}.invite b{display:block}.invite .ie{font-size:28px}.invite .wbtn{grid-column:1/-1;width:100%}.gset{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left}.gset b{display:block}.gedit{text-align:left;min-width:0;flex:1}.glink{display:inline-block;margin-top:4px;font-size:13px;font-weight:700;color:var(--accent-text)}.gtop{display:flex;align-items:center;justify-content:space-between;gap:10px}.gl{font-weight:700}
 .wbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;line-height:1;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:0 14px;height:40px;min-width:40px;font-weight:700;font-size:14px;color:var(--accent-text);white-space:nowrap}
 .gbar{height:8px;border-radius:4px;background:var(--bg);margin-top:10px;overflow:hidden}.gbar i{display:block;height:100%;background:var(--save);border-radius:4px}
 .plan .pk{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 0}.plan .pk b{font-family:var(--display);font-size:18px}
@@ -265,7 +265,7 @@ let photo=null, ortSess=null, EM=null, scan=null, ocrW=null, editIdx=null, viewD
 const curDay=()=>viewDay||dk();
 /* Яндекс Метрика: впишите номер счётчика, 0 = выключено */
 const METRIKA_ID=114217032;
-const GOAL_RU={weight:"Записал вес",water:"Выпил воды",share:"Поделился",add_food:"Записал еду",photo:"Фото блюда",scan:"Скан упаковки",say:"Голосовой ввод",mimo_order:"Заказ мимо рта",crave_tile:"Клик по витрине"};
+const GOAL_RU={goal_set:"Изменил цель",weight:"Записал вес",water:"Выпил воды",share:"Поделился",add_food:"Записал еду",photo:"Фото блюда",scan:"Скан упаковки",say:"Голосовой ввод",mimo_order:"Заказ мимо рта",crave_tile:"Клик по витрине"};
 function goal(n){try{if(METRIKA_ID&&window.ym){ym(METRIKA_ID,"reachGoal",n);ym(METRIKA_ID,"params",{"Действие":GOAL_RU[n]||n})}}catch(e){}}
 if(METRIKA_ID){(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})(window,document,"script","https://mc.yandex.ru/metrika/tag.js?id="+METRIKA_ID,"ym");ym(METRIKA_ID,"init",{ssr:true,webvisor:true,clickmap:true,trackLinks:true,accurateTrackBounce:true})}
 let cat="Всё", cart={}, tab="diary", order=S.active||null, addMeal=0, pick=null, q="";
@@ -296,14 +296,14 @@ function go(t){if(Date.now()-(toast.at||0)>400)$("#toast").hidden=true;tab=t;win
 
 function render(){
   const s=streak(),sb=$("#streak");sb.hidden=s<2;sb.textContent=`🔥 ${s} ${plural(s,"день","дня","дней")}`;sb.setAttribute("aria-label",`Серия: ${s} ${plural(s,"день","дня","дней")} подряд с записями`);
-  const group={diary:"diary",add:"diary",photo:"diary",say:"diary",plan:"diary",weight:"diary",scan:"diary",entry:"diary",setup:"diary",menu:"menu",cart:"menu",track:"menu",reward:"menu",me:"me"}[tab];
+  const group={diary:"diary",add:"diary",photo:"diary",say:"diary",plan:"diary",weight:"diary",goal:"diary",scan:"diary",entry:"diary",setup:"diary",menu:"menu",cart:"menu",track:"menu",reward:"menu",me:"me"}[tab];
   $("nav.tabs").hidden=tab==="setup"&&!S.profile;
   document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===group));
   const ci=cartInfo();
   $("#cartbar").hidden=!(tab==="menu"&&ci.q>0);
   $("#cartCount").textContent=`${ci.q} ${plural(ci.q,"блюдо","блюда","блюд")} · в корзину`;
   $("#cartSum").textContent=fmt(ci.p)+" ₽";
-  ({diary:renderDiary,add:renderAdd,photo:renderPhoto,say:renderSay,plan:renderPlan,weight:renderWeight,scan:renderScan,entry:renderEntry,setup:renderSetup,menu:renderMenu,cart:renderCart,track:renderTrack,reward:renderReward,me:renderMe})[tab]();
+  ({diary:renderDiary,add:renderAdd,photo:renderPhoto,say:renderSay,plan:renderPlan,weight:renderWeight,goal:renderGoal,scan:renderScan,entry:renderEntry,setup:renderSetup,menu:renderMenu,cart:renderCart,track:renderTrack,reward:renderReward,me:renderMe})[tab]();
 }
 
 /* ---------- Дневник ---------- */
@@ -413,8 +413,8 @@ const SHARE_URL="https://mostap-app.github.io/mimo-rta/";
 function share(text){goal("share");const d={title:"Мимо рта",text,url:SHARE_URL};
   if(navigator.share)return navigator.share(d).catch(()=>{});
   const t=text+" "+SHARE_URL;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast("Ссылка скопирована, отправьте её другу")).catch(()=>toast(SHARE_URL))}
-function goalCard(){const p=S.profile;if(!p)return"";if(p.goal!==1&&!p.tw)return `<button class="sheet goalc gset" data-go="setup"><span><b>Когда вы будете у цели?</b><span class="kcal">Укажите желаемый вес, и приложение посчитает дату</span></span><span class="wbtn">Указать</span></button>`;const f=forecast(),cw=curW();
-  return `<div class="sheet goalc"><div class="gtop"><div><div class="gl">${f?(f.done?"Цель достигнута 🎉":"Цель: "+fmt1(p.tw)+" кг к "+fdate(f.date)):"Цель: держать вес"}</div><div class="kcal">Сейчас ${fmt1(cw)} кг${f&&!f.done?` · осталось ${fmt1(Math.abs(f.left))} кг`:""}</div></div><button class="wbtn" data-go="weight">Взвеситься</button></div>
+function goalCard(){const p=S.profile;if(!p)return"";if(p.goal!==1&&!p.tw)return `<button class="sheet goalc gset" data-go="goal"><span><b>Когда вы будете у цели?</b><span class="kcal">Укажите желаемый вес, и приложение посчитает дату</span></span><span class="wbtn">Указать</span></button>`;const f=forecast(),cw=curW();
+  return `<div class="sheet goalc"><div class="gtop"><button class="gedit" data-go="goal"><div class="gl">${f?(f.done?"Цель достигнута 🎉":"Цель: "+fmt1(p.tw)+" кг к "+fdate(f.date)):"Цель: держать вес"}</div><div class="kcal">Сейчас ${fmt1(cw)} кг${f&&!f.done?` · осталось ${fmt1(Math.abs(f.left))} кг`:""}</div><span class="glink">Изменить цель</span></button><button class="wbtn" data-go="weight">Взвеситься</button></div>
   ${f&&!f.done?`<div class="gbar"><i style="width:${f.pct}%"></i></div>`:""}</div>`}
 const fmt1=n=>(Math.round(n*10)/10).toLocaleString("ru-RU");
 function renderPlan(){const p=S.profile,f=forecast();
@@ -431,6 +431,15 @@ function renderPlan(){const p=S.profile,f=forecast();
    <div class="sheet"><b>Что поможет дойти:</b><p class="note">• Записывайте еду каждый день: фото, скан или голосом.<br>• Взвешивайтесь раз в неделю утром, кнопка «Взвеситься» в дневнике.<br>• Тянет на вредное — закажите «мимо рта» вместо настоящей доставки.</p></div>
    <button class="cta" data-go="diary">Начать</button>`;
 }
+function renderGoal(){const p=S.profile;if(!p)return go("setup");const cw=curW()||p.w;
+  $("#view").innerHTML=`
+   <button class="back" data-go="diary">← Дневник</button>
+   <h1>Ваша цель</h1>
+   <p class="lead">Сейчас ${fmt1(cw)} кг. Укажите, к какому весу идёте, и мы пересчитаем норму и дату.</p>
+   <div class="field"><label for="gGoal">Цель</label><select id="gGoal">${GOALS.map((g,i)=>`<option value="${i}" ${p.goal==i?"selected":""}>${g[0]}</option>`).join("")}</select></div>
+   <div class="field" id="gTwF" ${p.goal==1?"hidden":""}><label for="gTw">Желаемый вес, кг</label><input id="gTw" type="number" inputmode="decimal" step="0.1" value="${p.goal!==1&&p.tw?p.tw:(p.goal==2?Math.round(cw)+5:Math.round(cw)-5)}"></div>
+   <button class="cta" id="saveGoal">Сохранить цель</button>`;
+}
 function renderWeight(){const L=(S.weights||[]).slice(-5).reverse();
   $("#view").innerHTML=`
    <button class="back" data-go="diary">← Дневник</button>
@@ -438,6 +447,7 @@ function renderWeight(){const L=(S.weights||[]).slice(-5).reverse();
    <p class="lead">Лучше утром, натощак, раз в неделю.</p>
    <div class="field"><label for="wNow">Вес сегодня, кг</label><input id="wNow" type="number" inputmode="decimal" step="0.1" value="${curW()||""}"></div>
    <button class="cta" id="saveW">Сохранить</button>
+   <button class="ghost" data-go="goal">Изменить желаемый вес</button>
    ${L.length?`<div class="sheet"><h2 style="font-size:15px;margin:0">Последние записи</h2>${L.map(x=>`<div class="tot"><span class="muted">${fdate(new Date(x.d+"T12:00:00"))}</span><span>${fmt1(x.w)} кг</span></div>`).join("")}</div>`:""}`;
 }
 function weightChart(){const L=S.weights||[];if(L.length<2)return S.profile?`<div class="sheet"><h2>Вес</h2><p class="note">Запишите вес ещё раз через неделю, и здесь появится график.</p><button class="ghost" data-go="weight">Записать вес</button></div>`:"";
@@ -463,10 +473,10 @@ function renderSetup(){
    </div>
    <div class="field"><label for="w">Вес, кг</label><input id="w" type="number" inputmode="decimal" value="${p.w}"></div>
    <div class="field"><label for="act">Активность</label><select id="act">${ACT.map((a,i)=>`<option value="${i}" ${p.act==i?"selected":""}>${a[0]}</option>`).join("")}</select></div>
-   <div class="two">
+   <div>
      <div class="field"><label for="goal">Цель</label><select id="goal">${GOALS.map((g,i)=>`<option value="${i}" ${p.goal==i?"selected":""}>${g[0]}</option>`).join("")}</select></div>
-     <div class="field" id="twF" ${p.goal==1?"hidden":""}><label for="tw">Желаемый вес, кг</label><input id="tw" type="number" inputmode="decimal" value="${p.tw||(p.goal==2?p.w+5:p.w-5)}"></div>
    </div>
+   <div class="field" id="twF" ${p.goal==1?"hidden":""}><label for="tw">Желаемый вес, кг</label><input id="tw" type="number" inputmode="decimal" value="${p.tw||(p.goal==2?p.w+5:p.w-5)}"></div>
    <button class="cta" id="saveProfile">Рассчитать</button>
    ${S.profile?"":`<button class="ghost" id="skipProfile">Пропустить, взять 2 000 ккал</button>`}
    <p class="note">Формула Миффлина – Сан Жеора. Это ориентир, а не медицинская рекомендация.</p>`;
@@ -928,6 +938,7 @@ document.addEventListener("change",e=>{const f=e.target.files&&e.target.files[0]
 document.addEventListener("input",e=>{
   if(e.target.id==="pq"&&photo){photo.q=e.target.value;$("#pres").innerHTML=photoFind();return}
   if(e.target.dataset.pg!==undefined&&photo){const k=+e.target.dataset.pg,x=photo.sel[k];x.g=+e.target.value||0;$("#pk"+k).textContent=fmt(FOODS[x.i][1]*x.g/100)+" ккал";return photoCta()}
+  if(e.target.id==="gGoal"){const g=+e.target.value,w=Math.round(curW()||S.profile.w);$("#gTwF").hidden=g===1;$("#gTw").value=g===2?w+5:w-5}
   if(e.target.id==="goal"&&$("#twF")){const g=+e.target.value,w=+$("#w").value||70;$("#twF").hidden=g===1;$("#tw").value=g===2?w+5:w-5}
   if(e.target.id==="sayT"){sayText=e.target.value;return}
   if(e.target.id==="q"){q=e.target.value;$("#res").innerHTML=foodRows()}
@@ -976,6 +987,13 @@ document.addEventListener("click",e=>{
     let tw=goal===1?w:+$("#tw").value;if(goal!==1&&!(tw>30&&tw<300))return toast("Укажите желаемый вес");
     if(goal===0&&tw>=w)return toast("Для похудения желаемый вес должен быть меньше текущего");if(goal===2&&tw<=w)return toast("Для набора желаемый вес должен быть больше текущего");
     const first=!S.profile;S.profile={sex,age,h,w,act,goal,norm:n,tw,w0:(S.profile&&S.profile.w0)||w};logWeight(w);save();return go(first||goal!==1?"plan":"diary");
+  }
+  if(b.id==="saveGoal"){const p=S.profile,g=+$("#gGoal").value,cw=curW()||p.w;
+    let tw=g===1?cw:+String($("#gTw").value).replace(",",".");if(g!==1&&!(tw>30&&tw<300))return toast("Укажите желаемый вес");
+    if(g===0&&tw>=cw)return toast("Для похудения желаемый вес должен быть меньше текущего");if(g===2&&tw<=cw)return toast("Для набора желаемый вес должен быть больше текущего");
+    const bmr=10*cw+6.25*p.h-5*p.age+(p.sex==="m"?5:-161);
+    p.norm=Math.max(p.sex==="m"?1500:1200,Math.round((bmr*ACT[p.act][1]+GOALS[g][1])/10)*10);
+    p.goal=g;p.tw=tw;p.w=cw;save();goal("goal_set");return go(g!==1?"plan":"diary");
   }
   if(b.id==="skipProfile"){S.profile={sex:"f",age:35,h:168,w:75,act:1,goal:0,norm:2000};save();return go("diary")}
   if(b.id==="streak"){const n=streak();return toast(`Вы ${n} ${plural(n,"день","дня","дней")} подряд ведёте дневник. Кто записывает еду каждый день, худеет заметно успешнее. Не прерывайте серию!`)}
