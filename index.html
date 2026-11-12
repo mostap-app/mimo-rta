@@ -414,7 +414,7 @@ function share(text){goal("share");const d={title:"Мимо рта",text,url:SHA
   if(navigator.share)return navigator.share(d).catch(()=>{});
   const t=text+" "+SHARE_URL;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast("Ссылка скопирована, отправьте её другу")).catch(()=>toast(SHARE_URL))}
 function goalCard(){const p=S.profile;if(!p)return"";if(p.goal!==1&&!p.tw)return `<button class="sheet goalc gset" data-go="setup"><span><b>Когда вы будете у цели?</b><span class="kcal">Укажите желаемый вес, и приложение посчитает дату</span></span><span class="wbtn">Указать</span></button>`;const f=forecast(),cw=curW();
-  return `<div class="sheet goalc"><div class="gtop"><div><div class="gl">${f?(f.done?"Цель достигнута 🎉":"Цель: "+fmt1(p.tw)+" кг к "+fdate(f.date)):"Цель: держать вес"}</div><div class="kcal">Сейчас ${fmt1(cw)} кг${f&&!f.done?` · осталось ${fmt1(Math.abs(f.left))} кг`:""}</div></div><button class="wbtn" data-go="weight">+ Вес</button></div>
+  return `<div class="sheet goalc"><div class="gtop"><div><div class="gl">${f?(f.done?"Цель достигнута 🎉":"Цель: "+fmt1(p.tw)+" кг к "+fdate(f.date)):"Цель: держать вес"}</div><div class="kcal">Сейчас ${fmt1(cw)} кг${f&&!f.done?` · осталось ${fmt1(Math.abs(f.left))} кг`:""}</div></div><button class="wbtn" data-go="weight">Взвеситься</button></div>
   ${f&&!f.done?`<div class="gbar"><i style="width:${f.pct}%"></i></div>`:""}</div>`}
 const fmt1=n=>(Math.round(n*10)/10).toLocaleString("ru-RU");
 function renderPlan(){const p=S.profile,f=forecast();
@@ -428,7 +428,7 @@ function renderPlan(){const p=S.profile,f=forecast();
        <text x="14" y="${y(a)+(a>bw?-12:22)}" font-size="12" fill="var(--muted)">Сейчас ${fmt1(a)} кг</text><text x="${W-14}" y="${y(bw)+(a>bw?22:-12)}" font-size="12" fill="var(--save-text)" text-anchor="end">${fmt1(bw)} кг</text></svg>
      <p class="note">Темп ${p.goal===0?"около 0,5 кг":"около 0,35 кг"} в неделю: так вес уходит и не возвращается. Через ${Math.max(1,Math.round(f.weeks))} ${plural(Math.max(1,Math.round(f.weeks)),"неделю","недели","недель")} вы будете у цели, если держать норму.</p>`:`<p class="note">Держите норму, и вес останется стабильным.</p>`}
    </div>
-   <div class="sheet"><b>Что поможет дойти:</b><p class="note">• Записывайте еду каждый день: фото, скан или голосом.<br>• Взвешивайтесь раз в неделю утром, кнопка «+ Вес» в дневнике.<br>• Тянет на вредное — закажите «мимо рта» вместо настоящей доставки.</p></div>
+   <div class="sheet"><b>Что поможет дойти:</b><p class="note">• Записывайте еду каждый день: фото, скан или голосом.<br>• Взвешивайтесь раз в неделю утром, кнопка «Взвеситься» в дневнике.<br>• Тянет на вредное — закажите «мимо рта» вместо настоящей доставки.</p></div>
    <button class="cta" data-go="diary">Начать</button>`;
 }
 function renderWeight(){const L=(S.weights||[]).slice(-5).reverse();
@@ -440,7 +440,7 @@ function renderWeight(){const L=(S.weights||[]).slice(-5).reverse();
    <button class="cta" id="saveW">Сохранить</button>
    ${L.length?`<div class="sheet"><h2 style="font-size:15px;margin:0">Последние записи</h2>${L.map(x=>`<div class="tot"><span class="muted">${fdate(new Date(x.d+"T12:00:00"))}</span><span>${fmt1(x.w)} кг</span></div>`).join("")}</div>`:""}`;
 }
-function weightChart(){const L=S.weights||[];if(L.length<2)return S.profile?`<div class="sheet"><h2>Вес</h2><p class="note">Запишите вес ещё раз через неделю, и здесь появится график.</p><button class="ghost" data-go="weight">+ Записать вес</button></div>`:"";
+function weightChart(){const L=S.weights||[];if(L.length<2)return S.profile?`<div class="sheet"><h2>Вес</h2><p class="note">Запишите вес ещё раз через неделю, и здесь появится график.</p><button class="ghost" data-go="weight">Записать вес</button></div>`:"";
   const W=300,H=130,ws=L.map(x=>x.w),tw=S.profile&&S.profile.goal!==1?S.profile.tw:null,mn=Math.min(...ws,tw||Infinity)-0.5,mx=Math.max(...ws,tw||-Infinity)+0.5;
   const t0=new Date(L[0].d).getTime(),t1=new Date(L[L.length-1].d).getTime()||t0+1,X=d=>16+(new Date(d).getTime()-t0)/((t1-t0)||1)*(W-32),Y=v=>H-18-(v-mn)/(mx-mn)*(H-36);
   const pts=L.map(x=>`${X(x.d).toFixed(1)},${Y(x.w).toFixed(1)}`).join(" ");
@@ -449,7 +449,7 @@ function weightChart(){const L=S.weights||[];if(L.length<2)return S.profile?`<di
    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
    ${L.map(x=>`<circle cx="${X(x.d)}" cy="${Y(x.w)}" r="3.5" fill="var(--accent)"/>`).join("")}
    <text x="16" y="${H-3}" font-size="11" fill="var(--muted)">${fmt1(L[0].w)} кг</text><text x="${W-16}" y="${H-3}" font-size="11" text-anchor="end" fill="var(--ink)">${fmt1(L[L.length-1].w)} кг</text></svg>
-   <p class="note">${(()=>{const d=L[L.length-1].w-L[0].w;return d===0?"Вес стабилен.":`${d<0?"Минус":"Плюс"} ${fmt1(Math.abs(d))} кг с начала.`})()}</p><button class="ghost" data-go="weight">+ Записать вес</button></div>`}
+   <p class="note">${(()=>{const d=L[L.length-1].w-L[0].w;return d===0?"Вес стабилен.":`${d<0?"Минус":"Плюс"} ${fmt1(Math.abs(d))} кг с начала.`})()}</p><button class="ghost" data-go="weight">Записать вес</button></div>`}
 function renderSetup(){
   const p=S.profile||{sex:"f",age:35,h:168,w:75,act:1,goal:0};
   $("#view").innerHTML=`
