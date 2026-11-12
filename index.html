@@ -257,9 +257,9 @@ let S=load();
 let photo=null, ortSess=null, EM=null, scan=null, ocrW=null, editIdx=null, viewDay=null, undo=null;
 const curDay=()=>viewDay||dk();
 /* Яндекс Метрика: впишите номер счётчика, 0 = выключено */
-const METRIKA_ID=0;
+const METRIKA_ID=114217032;
 function goal(n){try{if(METRIKA_ID&&window.ym)ym(METRIKA_ID,"reachGoal",n)}catch(e){}}
-if(METRIKA_ID){(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})(window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");ym(METRIKA_ID,"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true})}
+if(METRIKA_ID){(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})(window,document,"script","https://mc.yandex.ru/metrika/tag.js?id="+METRIKA_ID,"ym");ym(METRIKA_ID,"init",{ssr:true,webvisor:true,clickmap:true,trackLinks:true,accurateTrackBounce:true})}
 let cat="Всё", cart={}, tab="diary", order=S.active||null, addMeal=0, pick=null, q="";
 
 function load(){
