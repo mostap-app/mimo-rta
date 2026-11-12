@@ -547,7 +547,7 @@ function renderScan(){
    <img class="shot" src="${scan.url}" alt="Фото упаковки">
    ${scan.status?`<div class="status" role="status"><span class="spin"></span>${esc(scan.status)}</div>`:`
    <p class="note">${esc(scan.src)}</p>
-   <div class="field"><label for="fn">Название</label><input id="fn" value="${esc(scan.n)}" placeholder="Например, йогурт питьевой клубничный"></div>
+   <div class="field"><label for="fn">Название</label><input id="fn" value="${esc(scan.n)}" placeholder="Как называется продукт? Например, йогурт клубничный"></div>
    <div class="two"><div class="field"><label for="k100">Ккал на 100 г</label><input id="k100" type="number" inputmode="decimal" min="0" value="${scan.k100}" placeholder="с упаковки"></div>
    <div class="field"><label for="grams">Сколько грамм</label><input id="grams" type="number" inputmode="numeric" min="1" value="${scan.g}"></div></div>
    <div class="bigk" id="kc">${fmt((+scan.k100||0)*scan.g/100)} ккал</div>
@@ -556,18 +556,22 @@ function renderScan(){
    <p class="note">Совет: лучше всего фотографировать штрихкод крупно, а если его нет в базе, то таблицу «Пищевая ценность».</p>`}`;
 }
 
+const FOOD_WORDS="паст макарон спагет лапш рамен удон йогурт кефир молок творог сыр сырок орех арахис миндал фундук кешью фисташ семечк хлеб батон багет лаваш тортил печень шоколад конфет батончик вафл пряник зефир мармелад халв сок нектар вод чай кофе какао напит лимонад квас морс компот смузи коктейл ряженк снежок айран простокваш сливк сметан масл майонез кетчуп соус колбас сосиск сардельк ветчин бекон грудинк курин куриц цыпл индейк говядин свинин телятин баранин мяс фарш котлет тефтел фрикадел наггетс рыб тунец тунц лосос сёмг семг форел сельд скумбри кальмар кревет икр крабов паштет хумус брынз моцарел пармезан фета салат суп борщ щи солянк каш гречк рис овсян хлоп мюсли гранол плов пельмен вареник блин сырник омлет яйц торт пирож пирог булочк круассан кекс маффин мороженое пломбир десерт пудинг мёд мед варень джем повидл фрукт яблок груш банан апельсин мандарин ягод клубник малин вишн черник овощ томат помидор огур картоф чипс сухар крекер хлебц пицц бургер сэндвич ролл шаурм нут фасол чечевиц горох кукуруз гриб шампиньон капуст морков свекл тыкв кабач баклажан оливк маслин изюм кураг финик чернослив булгур кускус киноа перловк пшен манк протеин гейнер".split(" ");
+function hasFood(t){t=t.toLowerCase();return FOOD_WORDS.some(w=>new RegExp("(^|[^а-яё])"+w).test(t))}
+function niceCase(t){return t===t.toUpperCase()?t.charAt(0)+t.slice(1).toLowerCase():t}
 function guessName(data){
-  // название обычно самая крупная и чётко прочитанная строка вверху этикетки
-  const bad=/ценност|состав|белк|жир|углев|масс|срок|хран|изготов|ккал|кдж|гост|претенз|адрес|вернём|продукт готов/i;
+  // Название ставим, только если в крупной чёткой строке есть слово про еду. Иначе поле пустое: лучше пусто, чем мусор.
+  const bad=/ценност|состав|белк|жир|углев|масс|срок|хран|изготов|ккал|кдж|гост|претенз|адрес|вернём|продукт готов|число|месяц|рекоменд|разогре|упаков|изделия|блюда/i;
   const lines=[];(data.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>lines.push(l))));
   const clean=l=>{const seg=[];for(const w of l.words||[]){if(/[|]/.test(w.text)&&seg.length)break;const t=w.text.replace(/[^А-ЯЁа-яё0-9%,.-]/g,"");if(w.confidence>=60&&/[А-ЯЁа-яё]{3,}/.test(t))seg.push(t);else if(seg.length)break}return seg.join(" ")};
-  let best=null,bi=-1;
-  lines.forEach((l,i)=>{if(l.confidence<55||bad.test(l.text))return;const t=clean(l);if(t.length<4)return;const h=l.bbox.y1-l.bbox.y0;if(!best||h>best.h*1.15||(h>=best.h*0.87&&l.bbox.y0<best.y)){best={t,h,y:l.bbox.y0};bi=i}});
-  if(!best)return"";
   const hs=lines.map(l=>l.bbox.y1-l.bbox.y0).sort((a,b)=>a-b),med=hs[hs.length>>1]||1;
-  if(best.h<med*1.35)return"";
+  let best=null,bi=-1;
+  lines.forEach((l,i)=>{if(l.confidence<55||bad.test(l.text))return;const t=clean(l);if(t.length<3||!hasFood(t))return;
+    const h=l.bbox.y1-l.bbox.y0,sc=h/med+(t.length<=40?1:0);if(!best||sc>best.sc){best={t,h,sc};bi=i}});
+  if(!best)return"";
   const nx=lines[bi+1];if(nx&&nx.confidence>=55&&!bad.test(nx.text)){const h=nx.bbox.y1-nx.bbox.y0,t=clean(nx);if(t&&h>=best.h*0.7&&(best.t+" "+t).length<=45)best.t+=" "+t}
-  const n=best.t.replace(/[,.-]+$/,"").trim();return n.length>45?n.slice(0,45):n;
+  let n=niceCase(best.t.replace(/[,.-]+$/,"").trim());
+  return n.length>45?n.slice(0,45).replace(/\s\S*$/,""):n;
 }
 
 /* ---------- Правка записи ---------- */
