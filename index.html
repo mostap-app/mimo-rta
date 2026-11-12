@@ -72,7 +72,7 @@ nav.tabs button[aria-current="true"]{color:var(--accent-text)}
 .del{width:36px;height:36px;border-radius:50%;color:var(--muted);font-size:18px;flex:none}
 .step{display:flex;gap:8px;align-items:center}
 .step button{width:34px;height:34px;border-radius:50%;background:var(--bg);border:1px solid var(--line);font-weight:700}
-.tot{display:flex;justify-content:space-between;padding:6px 0;font-variant-numeric:tabular-nums;gap:12px}
+.cupset{display:block;font-size:12px;color:var(--muted);text-decoration:underline;text-underline-offset:2px;padding:2px 0}.wrow{align-items:center}.wrow .wv{display:flex;align-items:center;gap:6px}.tot{display:flex;justify-content:space-between;padding:6px 0;font-variant-numeric:tabular-nums;gap:12px}
 .tot.big{font-weight:700;font-size:17px;border-top:1px solid var(--line);margin-top:6px;padding-top:12px}
 .cta{width:100%;margin-top:16px;background:var(--accent);color:var(--accent-ink);border-radius:18px;padding:16px;font-weight:700;font-size:16px}
 .ghost{width:100%;margin-top:10px;padding:14px;border-radius:18px;border:1px solid var(--line);font-weight:600}
@@ -346,7 +346,7 @@ function renderDiary(){
      ${items.map(x=>`<div class="line"><button class="t" data-edit="${x.i}"><b>${esc(x.n)}</b><div class="kcal">${x.g?fmt(x.g)+" г · ":""}${fmt(x.k)} ккал</div></button><button class="del" data-del="${x.i}" aria-label="Удалить ${esc(x.n)}">✕</button></div>`).join("")}
      <button class="addline" data-addmeal="${mi}">+ Добавить</button>
    </div>`}).join("")}
-   ${mimoList.length?`<div class="sheet"><h2>Пронесли мимо рта</h2>${mimoList.map(o=>`<div class="line mimo-row"><div class="e" aria-hidden="true">${o.ids&&o.ids.length?pic(dish(o.ids[0])):""}</div><div class="t"><b>−${fmt(o.k)} ккал</b><div class="kcal">${new Date(o.d).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})} · ${fmt(o.p)} ₽ остались в кармане</div></div></div>`).join("")}</div>`:""}`;
+   ${mimoList.length?`<div class="sheet"><h2>Пронесли мимо рта</h2>${mimoList.map(o=>`<div class="line mimo-row"><div class="e" aria-hidden="true">${o.ids&&o.ids.length?pic(dish(o.ids[0])):""}</div><div class="t"><b>−${fmt(o.k)} ккал</b><div class="kcal">${new Date(o.d).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})} · ${fmt(o.p)} ₽ сэкономлено</div></div><button class="del" data-delm="${o.d}" aria-label="Удалить заказ">✕</button></div>`).join("")}</div>`:""}`;
 }
 
 const nz=t=>String(t).toLowerCase().replace(/ё/g,"е");
@@ -406,8 +406,8 @@ function forecast(){const p=S.profile;if(!p||p.goal===1||!p.tw)return null;const
 const fdate=d=>d.toLocaleDateString("ru-RU",{day:"numeric",month:"long"});
 function waterNorm(){const w=curW()||70;return Math.max(1500,Math.min(3500,Math.round(w*30/250)*250))}
 function waterCard(day){const ml=(S.water||{})[day]||0,N=waterNorm(),cups=N/250,done=Math.min(cups,Math.round(ml/250));
-  return `<div class="sheet water"><div class="gtop"><div><div class="gl">💧 Вода ${(ml/1000).toLocaleString("ru-RU",{maximumFractionDigits:2})} л <span class="muted" style="font-weight:500">из ${(N/1000).toLocaleString("ru-RU",{maximumFractionDigits:2})} л</span></div><div class="kcal">${ml>=N?"Норма выполнена 👍":"Стакан = 250 мл"}</div></div>
-   <div class="wbtns"><button class="wbtn wmin" data-wat="-250" aria-label="Убрать стакан" ${ml?"":"disabled"}>−</button><button class="wbtn" data-wat="250">+ стакан</button></div></div>
+  return `<div class="sheet water"><div class="gtop"><div><div class="gl">💧 Вода ${(ml/1000).toLocaleString("ru-RU",{maximumFractionDigits:2})} л <span class="muted" style="font-weight:500">из ${(N/1000).toLocaleString("ru-RU",{maximumFractionDigits:2})} л</span></div><div class="kcal">${ml>=N?"Норма выполнена 👍":""}<button class="cupset" data-cup="1">Стакан ${S.cup||250} мл · изменить</button></div></div>
+   <div class="wbtns"><button class="wbtn wmin" data-wat="-${S.cup||250}" aria-label="Убрать стакан" ${ml?"":"disabled"}>−</button><button class="wbtn" data-wat="${S.cup||250}">+ стакан</button></div></div>
    <div class="cups" aria-hidden="true">${Array.from({length:cups},(_,i)=>`<i class="${i<done?"on":""}"></i>`).join("")}</div></div>`}
 const SHARE_URL="https://mostap-app.github.io/mimo-rta/";
 function share(text){goal("share");const d={title:"Мимо рта",text,url:SHARE_URL};
@@ -431,6 +431,7 @@ function renderPlan(){const p=S.profile,f=forecast();
    <div class="sheet"><b>Что поможет дойти:</b><p class="note">• Записывайте еду каждый день: фото, скан или голосом.<br>• Взвешивайтесь раз в неделю утром, кнопка «Взвеситься» в дневнике.<br>• Тянет на вредное — закажите «мимо рта» вместо настоящей доставки.</p></div>
    <button class="cta" data-go="diary">Начать</button>`;
 }
+function goalNorm(g,cw){const p=S.profile,bmr=10*cw+6.25*p.h-5*p.age+(p.sex==="m"?5:-161);return Math.max(p.sex==="m"?1500:1200,Math.round((bmr*ACT[p.act][1]+GOALS[g][1])/10)*10)}
 function renderGoal(){const p=S.profile;if(!p)return go("setup");const cw=curW()||p.w;
   $("#view").innerHTML=`
    <button class="back" data-go="diary">← Дневник</button>
@@ -438,6 +439,8 @@ function renderGoal(){const p=S.profile;if(!p)return go("setup");const cw=curW()
    <p class="lead">Сейчас ${fmt1(cw)} кг. Укажите, к какому весу идёте, и мы пересчитаем норму и дату.</p>
    <div class="field"><label for="gGoal">Цель</label><select id="gGoal">${GOALS.map((g,i)=>`<option value="${i}" ${p.goal==i?"selected":""}>${g[0]}</option>`).join("")}</select></div>
    <div class="field" id="gTwF" ${p.goal==1?"hidden":""}><label for="gTw">Желаемый вес, кг</label><input id="gTw" type="number" inputmode="decimal" step="0.1" value="${p.goal!==1&&p.tw?p.tw:(p.goal==2?Math.round(cw)+5:Math.round(cw)-5)}"></div>
+   <div class="field"><label for="gNorm">Норма в день, ккал</label><input id="gNorm" type="number" inputmode="numeric" value="${goalNorm(p.goal,cw)}"></div>
+   <p class="note">Считаем по формуле. Если врач или тренер дал свою норму, впишите её.</p>
    <button class="cta" id="saveGoal">Сохранить цель</button>`;
 }
 function renderWeight(){const L=(S.weights||[]).slice(-5).reverse();
@@ -448,7 +451,7 @@ function renderWeight(){const L=(S.weights||[]).slice(-5).reverse();
    <div class="field"><label for="wNow">Вес сегодня, кг</label><input id="wNow" type="number" inputmode="decimal" step="0.1" value="${curW()||""}"></div>
    <button class="cta" id="saveW">Сохранить</button>
    <button class="ghost" data-go="goal">Изменить желаемый вес</button>
-   ${L.length?`<div class="sheet"><h2 style="font-size:15px;margin:0">Последние записи</h2>${L.map(x=>`<div class="tot"><span class="muted">${fdate(new Date(x.d+"T12:00:00"))}</span><span>${fmt1(x.w)} кг</span></div>`).join("")}</div>`:""}`;
+   ${L.length?`<div class="sheet"><h2 style="font-size:15px;margin:0">Последние записи</h2>${L.map(x=>`<div class="tot wrow"><span class="muted">${fdate(new Date(x.d+"T12:00:00"))}</span><span class="wv">${fmt1(x.w)} кг<button class="del" data-delw="${x.d}" aria-label="Удалить запись">✕</button></span></div>`).join("")}</div>`:""}`;
 }
 function weightChart(){const L=S.weights||[];if(L.length<2)return S.profile?`<div class="sheet"><h2>Вес</h2><p class="note">Запишите вес ещё раз через неделю, и здесь появится график.</p><button class="ghost" data-go="weight">Записать вес</button></div>`:"";
   const W=300,H=130,ws=L.map(x=>x.w),tw=S.profile&&S.profile.goal!==1?S.profile.tw:null,mn=Math.min(...ws,tw||Infinity)-0.5,mx=Math.max(...ws,tw||-Infinity)+0.5;
@@ -938,7 +941,7 @@ document.addEventListener("change",e=>{const f=e.target.files&&e.target.files[0]
 document.addEventListener("input",e=>{
   if(e.target.id==="pq"&&photo){photo.q=e.target.value;$("#pres").innerHTML=photoFind();return}
   if(e.target.dataset.pg!==undefined&&photo){const k=+e.target.dataset.pg,x=photo.sel[k];x.g=+e.target.value||0;$("#pk"+k).textContent=fmt(FOODS[x.i][1]*x.g/100)+" ккал";return photoCta()}
-  if(e.target.id==="gGoal"){const g=+e.target.value,w=Math.round(curW()||S.profile.w);$("#gTwF").hidden=g===1;$("#gTw").value=g===2?w+5:w-5}
+  if(e.target.id==="gGoal"){const g=+e.target.value,w=Math.round(curW()||S.profile.w);$("#gTwF").hidden=g===1;$("#gTw").value=g===2?w+5:w-5;$("#gNorm").value=goalNorm(g,curW()||S.profile.w)}
   if(e.target.id==="goal"&&$("#twF")){const g=+e.target.value,w=+$("#w").value||70;$("#twF").hidden=g===1;$("#tw").value=g===2?w+5:w-5}
   if(e.target.id==="sayT"){sayText=e.target.value;return}
   if(e.target.id==="q"){q=e.target.value;$("#res").innerHTML=foodRows()}
@@ -966,6 +969,9 @@ document.addEventListener("click",e=>{
   if(b.dataset.pick){pick=b.dataset.pick==="custom"?"custom":+b.dataset.pick;return go("add")}
   if(b.dataset.back){pick=null;return go("add")}
   if(b.dataset.g){const g=$("#grams");g.value=b.dataset.g;g.dispatchEvent(new Event("input",{bubbles:true}));return}
+  if(b.dataset.delm){const i=S.orders.findIndex(o=>o.d==b.dataset.delm);if(i<0)return;const [x]=S.orders.splice(i,1);save();render();undo=()=>{S.orders.splice(i,0,x);save();render()};return toast("Заказ удалён из статистики",true)}
+  if(b.dataset.delw){const i=S.weights.findIndex(v=>v.d===b.dataset.delw);if(i<0)return;const [x]=S.weights.splice(i,1);save();render();undo=()=>{S.weights.splice(i,0,x);S.weights.sort((a,c)=>a.d<c.d?-1:1);save();render()};return toast(`Удалено: ${fmt1(x.w)} кг`,true)}
+  if(b.dataset.cup){S.cup=[200,250,300,500][([200,250,300,500].indexOf(S.cup||250)+1)%4];save();return render()}
   if(b.dataset.del){const day=curDay(),i=+b.dataset.del,[x]=S.log[day].splice(i,1);save();render();undo=()=>{S.log[day].splice(i,0,x);save();render()};return toast(`Удалено: ${x.n}`,true)}
   if(b.id==="undo"){const f=undo;undo=null;$("#toast").hidden=true;if(f)f();return}
   if(b.dataset.day){const d=new Date((viewDay||dk())+"T12:00:00");d.setDate(d.getDate()+(+b.dataset.day));const k=dk(d);viewDay=k>=dk()?null:k;return render()}
@@ -991,9 +997,8 @@ document.addEventListener("click",e=>{
   if(b.id==="saveGoal"){const p=S.profile,g=+$("#gGoal").value,cw=curW()||p.w;
     let tw=g===1?cw:+String($("#gTw").value).replace(",",".");if(g!==1&&!(tw>30&&tw<300))return toast("Укажите желаемый вес");
     if(g===0&&tw>=cw)return toast("Для похудения желаемый вес должен быть меньше текущего");if(g===2&&tw<=cw)return toast("Для набора желаемый вес должен быть больше текущего");
-    const bmr=10*cw+6.25*p.h-5*p.age+(p.sex==="m"?5:-161);
-    p.norm=Math.max(p.sex==="m"?1500:1200,Math.round((bmr*ACT[p.act][1]+GOALS[g][1])/10)*10);
-    p.goal=g;p.tw=tw;p.w=cw;save();goal("goal_set");return go(g!==1?"plan":"diary");
+    const nn=+$("#gNorm").value;if(!(nn>=800&&nn<=6000))return toast("Норма должна быть от 800 до 6 000 ккал");
+    p.norm=Math.round(nn);p.goal=g;p.tw=tw;p.w=cw;save();goal("goal_set");return go(g!==1?"plan":"diary");
   }
   if(b.id==="skipProfile"){S.profile={sex:"f",age:35,h:168,w:75,act:1,goal:0,norm:2000};save();return go("diary")}
   if(b.id==="streak"){const n=streak();return toast(`Вы ${n} ${plural(n,"день","дня","дней")} подряд ведёте дневник. Кто записывает еду каждый день, худеет заметно успешнее. Не прерывайте серию!`)}
