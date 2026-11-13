@@ -107,7 +107,7 @@ button.t{text-align:left;padding:0;background:none;border:0;cursor:pointer}butto
 .daynav{display:flex;align-items:center;justify-content:space-between;gap:8px}.daynav h1{flex:1;text-align:center;margin:0}.daynav button{width:44px;height:44px;border-radius:50%;background:var(--surface);border:1px solid var(--line);color:var(--ink);display:grid;place-items:center}.daynav button:disabled{opacity:.3}
 #undo{margin-left:10px;color:#ffb48f;font-weight:700;text-decoration:underline;background:none;border:0;padding:4px 0}
 .restore{display:flex;align-items:center;justify-content:center;cursor:pointer}
-#view.searching .addtop,#view.searching .recents{display:none}.crave2.hero{background:linear-gradient(160deg,#fff3c4 0%,#ffe1cf 100%);border:2px solid var(--accent);box-shadow:0 12px 28px -14px rgba(244,81,30,.55)}.badge-new{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;margin-bottom:8px}nav.tabs button{position:relative}nav.tabs button.dot::after{content:"";position:absolute;top:10px;left:calc(50% + 10px);width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--surface);animation:blink 1.4s infinite}@keyframes blink{50%{opacity:.35}}.crave2 h2{margin:0;font-family:var(--display);font-size:18px}.crave2 .note{margin-top:4px}
+#view.searching .addtop,#view.searching .recents{display:none}.hello{text-align:center;padding-top:8px}.hello h1{margin:18px 0 8px}.hello .lead{margin:0 auto 22px;max-width:340px}.hpic{position:relative;width:250px;height:205px;margin:8px auto 0;border-radius:28px;overflow:hidden;background:#fdf5e8;box-shadow:0 18px 40px -20px rgba(244,81,30,.6)}.hpic img{width:100%;height:100%;object-fit:contain;display:block}.hpic span{position:absolute;padding:6px 10px;border-radius:999px;font-weight:800;font-size:14px;background:var(--surface);color:var(--save-text);box-shadow:0 6px 16px -8px rgba(0,0,0,.35)}.hk{left:10px;top:12px}.hr{right:10px;bottom:12px}.crave2.hero{background:linear-gradient(160deg,#fff3c4 0%,#ffe1cf 100%);border:2px solid var(--accent);box-shadow:0 12px 28px -14px rgba(244,81,30,.55)}.badge-new{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;margin-bottom:8px}nav.tabs button{position:relative}nav.tabs button.dot::after{content:"";position:absolute;top:10px;left:calc(50% + 10px);width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--surface);animation:blink 1.4s infinite}@keyframes blink{50%{opacity:.35}}.crave2 h2{margin:0;font-family:var(--display);font-size:18px}.crave2 .note{margin-top:4px}
 .rail{display:flex;gap:10px;overflow-x:auto;margin:12px -16px 0;padding:0 16px 4px;scroll-snap-type:x mandatory;scroll-padding:0 16px;scrollbar-width:none}.rail::-webkit-scrollbar{display:none}
 .tile{flex:0 0 140px;display:flex;flex-direction:column;text-align:left;background:var(--surface);border-radius:16px;padding:0 0 10px;overflow:hidden;scroll-snap-align:start;border:1px solid var(--line)}
 .tile .ph{width:100%;aspect-ratio:400/328;background:#fdf5e8;display:grid;place-items:center;font-size:40px;overflow:hidden}.tile .ph img{width:100%;height:100%;object-fit:contain;display:block}
@@ -297,14 +297,14 @@ function go(t){if(Date.now()-(toast.at||0)>400)$("#toast").hidden=true;tab=t;win
 function render(){
   if(tab!=="add")$("#view").classList.remove("searching");
   const s=streak(),sb=$("#streak");sb.hidden=s<2;sb.textContent=`🔥 ${s} ${plural(s,"день","дня","дней")}`;sb.setAttribute("aria-label",`Серия: ${s} ${plural(s,"день","дня","дней")} подряд с записями`);
-  const group={diary:"diary",add:"diary",photo:"diary",say:"diary",plan:"diary",weight:"diary",goal:"diary",scan:"diary",entry:"diary",setup:"diary",menu:"menu",cart:"menu",track:"menu",reward:"menu",me:"me"}[tab];
-  $("nav.tabs").hidden=tab==="setup"&&!S.profile;
+  const group={diary:"diary",add:"diary",photo:"diary",say:"diary",plan:"diary",weight:"diary",goal:"diary",scan:"diary",entry:"diary",setup:"diary",hello:"diary",menu:"menu",cart:"menu",track:"menu",reward:"menu",me:"me"}[tab];
+  $("nav.tabs").hidden=(tab==="setup"||tab==="hello")&&!S.profile;
   document.querySelectorAll("nav.tabs button").forEach(b=>{b.setAttribute("aria-current",b.dataset.tab===group);b.classList.toggle("dot",b.dataset.tab==="menu"&&!S.orders.length&&group!=="menu")});
   const ci=cartInfo();
   $("#cartbar").hidden=!(tab==="menu"&&ci.q>0);document.body.classList.toggle("hascart",!$("#cartbar").hidden);
   $("#cartCount").textContent=`${ci.q} ${plural(ci.q,"блюдо","блюда","блюд")} · в корзину`;
   $("#cartSum").textContent=fmt(ci.p)+" ₽";
-  ({diary:renderDiary,add:renderAdd,photo:renderPhoto,say:renderSay,plan:renderPlan,weight:renderWeight,goal:renderGoal,scan:renderScan,entry:renderEntry,setup:renderSetup,menu:renderMenu,cart:renderCart,track:renderTrack,reward:renderReward,me:renderMe})[tab]();
+  ({diary:renderDiary,add:renderAdd,photo:renderPhoto,say:renderSay,plan:renderPlan,weight:renderWeight,goal:renderGoal,hello:renderHello,scan:renderScan,entry:renderEntry,setup:renderSetup,menu:renderMenu,cart:renderCart,track:renderTrack,reward:renderReward,me:renderMe})[tab]();
 }
 
 /* ---------- Дневник ---------- */
@@ -438,6 +438,13 @@ function renderPlan(){const p=S.profile,f=forecast();
    <button class="cta" data-go="diary">Начать</button>`;
 }
 function goalNorm(g,cw){const p=S.profile,bmr=10*cw+6.25*p.h-5*p.age+(p.sex==="m"?5:-161);return Math.max(p.sex==="m"?1500:1200,Math.round((bmr*ACT[p.act][1]+GOALS[g][1])/10)*10)}
+function renderHello(){const d=dish(1);
+  $("#view").innerHTML=`<div class="hello">
+   <div class="hpic">${pic(d)}<span class="hk">−${fmt(d.k)} ккал</span><span class="hr">+${fmt(d.p)} ₽ сэкономлено</span></div>
+   <h1>Хочется вредного? Закажите мимо рта</h1>
+   <p class="lead">Выбираете еду как в доставке, а курьер не приезжает. Калории и деньги остаются при вас. А ещё здесь простой дневник калорий: фото, скан или голосом.</p>
+   <button class="cta" id="helloGo">Начать</button></div>`;
+}
 function renderGoal(){const p=S.profile;if(!p)return go("setup");const cw=curW()||p.w;
   $("#view").innerHTML=`
    <button class="back" data-go="diary">← Дневник</button>
@@ -1020,6 +1027,7 @@ document.addEventListener("click",e=>{
     const nn=+$("#gNorm").value;if(!(nn>=800&&nn<=6000))return toast("Норма должна быть от 800 до 6 000 ккал");
     p.norm=Math.round(nn);p.goal=g;p.tw=tw;p.w=cw;save();goal("goal_set");return go(g!==1?"plan":"diary");
   }
+  if(b.id==="helloGo"){S.hello=1;save();return go("setup")}
   if(b.id==="skipProfile"){S.profile={sex:"f",age:35,h:168,w:75,act:1,goal:0,norm:2000};save();return go("diary")}
   if(b.id==="streak"){const n=streak();return toast(`Вы ${n} ${plural(n,"день","дня","дней")} подряд ведёте дневник. Кто записывает еду каждый день, худеет заметно успешнее. Не прерывайте серию!`)}
   if(b.id==="backup"){const blob=new Blob([JSON.stringify(S)],{type:"application/json"}),name=`mimo-rta-${dk()}.json`,file=new File([blob],name,{type:"application/json"});
@@ -1037,7 +1045,7 @@ setInterval(()=>{
   if(tab==="track")renderTrack();
 },1000);
 
-if(order)tab="track";else if(!S.profile)tab="setup";
+if(order)tab="track";else if(!S.profile)tab=S.hello?"setup":"hello";
 render();
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
