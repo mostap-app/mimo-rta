@@ -107,7 +107,7 @@ button.t{text-align:left;padding:0;background:none;border:0;cursor:pointer}butto
 .daynav{display:flex;align-items:center;justify-content:space-between;gap:8px}.daynav h1{flex:1;text-align:center;margin:0}.daynav button{width:44px;height:44px;border-radius:50%;background:var(--surface);border:1px solid var(--line);color:var(--ink);display:grid;place-items:center}.daynav button:disabled{opacity:.3}
 #undo{margin-left:10px;color:#ffb48f;font-weight:700;text-decoration:underline;background:none;border:0;padding:4px 0}
 .restore{display:flex;align-items:center;justify-content:center;cursor:pointer}
-.crave2 h2{margin:0;font-family:var(--display);font-size:18px}.crave2 .note{margin-top:4px}
+#view.searching .addtop,#view.searching .recents{display:none}.crave2.hero{background:linear-gradient(160deg,#fff3c4 0%,#ffe1cf 100%);border:2px solid var(--accent);box-shadow:0 12px 28px -14px rgba(244,81,30,.55)}.badge-new{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;margin-bottom:8px}nav.tabs button{position:relative}nav.tabs button.dot::after{content:"";position:absolute;top:10px;left:calc(50% + 10px);width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--surface);animation:blink 1.4s infinite}@keyframes blink{50%{opacity:.35}}.crave2 h2{margin:0;font-family:var(--display);font-size:18px}.crave2 .note{margin-top:4px}
 .rail{display:flex;gap:10px;overflow-x:auto;margin:12px -16px 0;padding:0 16px 4px;scroll-snap-type:x mandatory;scroll-padding:0 16px;scrollbar-width:none}.rail::-webkit-scrollbar{display:none}
 .tile{flex:0 0 140px;display:flex;flex-direction:column;text-align:left;background:var(--surface);border-radius:16px;padding:0 0 10px;overflow:hidden;scroll-snap-align:start;border:1px solid var(--line)}
 .tile .ph{width:100%;aspect-ratio:400/328;background:#fdf5e8;display:grid;place-items:center;font-size:40px;overflow:hidden}.tile .ph img{width:100%;height:100%;object-fit:contain;display:block}
@@ -295,10 +295,11 @@ function toast(t,canUndo){toast.at=Date.now();const el=$("#toast");el.textConten
 function go(t){if(Date.now()-(toast.at||0)>400)$("#toast").hidden=true;tab=t;window.scrollTo(0,0);render()}
 
 function render(){
+  if(tab!=="add")$("#view").classList.remove("searching");
   const s=streak(),sb=$("#streak");sb.hidden=s<2;sb.textContent=`🔥 ${s} ${plural(s,"день","дня","дней")}`;sb.setAttribute("aria-label",`Серия: ${s} ${plural(s,"день","дня","дней")} подряд с записями`);
   const group={diary:"diary",add:"diary",photo:"diary",say:"diary",plan:"diary",weight:"diary",goal:"diary",scan:"diary",entry:"diary",setup:"diary",menu:"menu",cart:"menu",track:"menu",reward:"menu",me:"me"}[tab];
   $("nav.tabs").hidden=tab==="setup"&&!S.profile;
-  document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===group));
+  document.querySelectorAll("nav.tabs button").forEach(b=>{b.setAttribute("aria-current",b.dataset.tab===group);b.classList.toggle("dot",b.dataset.tab==="menu"&&!S.orders.length&&group!=="menu")});
   const ci=cartInfo();
   $("#cartbar").hidden=!(tab==="menu"&&ci.q>0);document.body.classList.toggle("hascart",!$("#cartbar").hidden);
   $("#cartCount").textContent=`${ci.q} ${plural(ci.q,"блюдо","блюда","блюд")} · в корзину`;
@@ -312,9 +313,11 @@ function craveBlock(left){
   const order=h<11?[9,8,11,1]:h<17?[1,5,3,6]:[3,1,6,10];
   const ids=[...order,...DISHES.map(d=>d.id).filter(i=>!order.includes(i))];
   const title=left<0?"Норма уже позади. Но хочется?":left<400?"Почти всё съедено. Тянет ещё?":h>=20?"Вечером тянет на вредное?":"Тянет на вредное?";
-  return `<div class="sheet crave2">
+  const fresh=!S.orders.length;
+  return `<div class="sheet crave2 ${fresh?"hero":""}">
+    ${fresh?`<span class="badge-new">✨ Фишка приложения</span>`:""}
     <h2>${title}</h2>
-    <p class="note">Закажите понарошку: курьер не приедет, а калории и деньги останутся при вас.</p>
+    <p class="note">${fresh?"Хочется бургер или пиццу? Закажите здесь понарошку: всё как в доставке, только курьер не приедет. Калории и деньги останутся при вас.":"Закажите понарошку: курьер не приедет, а калории и деньги останутся при вас."}</p>
     <div class="rail">${ids.map(dish).map(d=>`<button class="tile" data-crave="${d.id}"><div class="ph">${pic(d)}</div><b>${d.n}</b><span>−${fmt(d.k)} ккал</span><span>+${fmt(d.p)} ₽ сэкономлено</span></button>`).join("")}</div>
     <button class="cta" data-go="menu">Всё меню «мимо рта» →</button>
   </div>`;
@@ -358,13 +361,14 @@ function foodRows(){
   return list.length?list.map(x=>`<button data-pick="${x.i}"><span>${x.f[0]}</span><span class="kcal">${fmt(x.f[1]*x.f[2]/100)} ккал / ${x.f[2]} г</span></button>`).join(""):`<p class="muted">Ничего не нашлось. Добавьте своё блюдо ниже.</p>`;
 }
 function renderAdd(){
+  $("#view").classList.toggle("searching",pick===null&&!!q.trim());
   if(pick===null){
     $("#view").innerHTML=`
      <button class="back" data-go="diary">← Дневник</button>
      <h1>${MEALS[addMeal]}: что съели?</h1>
-     <div class="two snap three"><label class="photo-btn"><input type="file" accept="image/*" id="photoIn" style="position:absolute;width:1px;height:1px;opacity:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото блюда</label><label class="photo-btn"><input type="file" accept="image/*" id="scanIn" style="position:absolute;width:1px;height:1px;opacity:0">${ICON_BC}Скан упаковки</label><button class="photo-btn" data-go="say">${ICON_MIC}Сказать</button></div>
+     <div class="two snap three addtop"><label class="photo-btn"><input type="file" accept="image/*" id="photoIn" style="position:absolute;width:1px;height:1px;opacity:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото блюда</label><label class="photo-btn"><input type="file" accept="image/*" id="scanIn" style="position:absolute;width:1px;height:1px;opacity:0">${ICON_BC}Скан упаковки</label><button class="photo-btn" data-go="say">${ICON_MIC}Сказать</button></div>
      <input class="search" id="q" type="search" placeholder="Поиск: борщ, гречка, латте…" aria-label="Поиск блюда" value="${esc(q)}" autocomplete="off">
-     ${recents().length?`<div class="sheet res"><h2 style="font-size:15px;margin:0 0 4px">Недавнее, добавить одним нажатием</h2>${recents().map((x,i)=>`<button data-re="${i}"><span>${esc(x.n)}</span><span class="kcal">${x.g?fmt(x.g)+" г · ":""}${fmt(x.k)} ккал +</span></button>`).join("")}</div>`:""}
+     ${recents().length?`<div class="sheet res recents"><h2 style="font-size:15px;margin:0 0 4px">Недавнее, добавить одним нажатием</h2>${recents().map((x,i)=>`<button data-re="${i}"><span>${esc(x.n)}</span><span class="kcal">${x.g?fmt(x.g)+" г · ":""}${fmt(x.k)} ккал +</span></button>`).join("")}</div>`:""}
      <div class="sheet res" id="res">${foodRows()}</div>
      <button class="ghost" data-pick="custom">Своё блюдо: ввести калории вручную</button>
      <p class="note">Калорийность средняя, по справочным данным.</p>`;
@@ -430,6 +434,7 @@ function renderPlan(){const p=S.profile,f=forecast();
      <p class="note">Темп ${p.goal===0?"около 0,5 кг":"около 0,35 кг"} в неделю: так вес уходит и не возвращается. Через ${Math.max(1,Math.round(f.weeks))} ${plural(Math.max(1,Math.round(f.weeks)),"неделю","недели","недель")} вы будете у цели, если держать норму.</p>`:`<p class="note">Держите норму, и вес останется стабильным.</p>`}
    </div>
    <div class="sheet"><b>Что поможет дойти:</b><p class="note">• Записывайте еду каждый день: фото, скан или голосом.<br>• Взвешивайтесь раз в неделю утром, кнопка «Взвеситься» в дневнике.<br>• Тянет на вредное — закажите «мимо рта» вместо настоящей доставки.</p></div>
+   <div class="sheet crave2 hero"><span class="badge-new">✨ Фишка приложения</span><h2>Тянет на вредное?</h2><p class="note">Закажите любимую еду понарошку: всё как в доставке, только курьер не приедет. Калории и деньги останутся при вас.</p><button class="ghost" data-go="menu">Посмотреть меню «мимо рта»</button></div>
    <button class="cta" data-go="diary">Начать</button>`;
 }
 function goalNorm(g,cw){const p=S.profile,bmr=10*cw+6.25*p.h-5*p.age+(p.sex==="m"?5:-161);return Math.max(p.sex==="m"?1500:1200,Math.round((bmr*ACT[p.act][1]+GOALS[g][1])/10)*10)}
@@ -951,13 +956,15 @@ function renderMe(){
 /* ---------- События ---------- */
 document.addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(!f)return;
   if(e.target.id==="restoreIn"){f.text().then(t=>{const d=JSON.parse(t);if(!d||!d.log||!d.days)throw 0;S=Object.assign(load(),d);order=S.active||null;save();toast("Данные восстановлены");go("diary")}).catch(()=>toast("Это не файл копии «Мимо рта»"));e.target.value="";return}if(e.target.id==="photoIn")startPhoto(f);if(e.target.id==="scanIn")startScan(f);e.target.value=""});
+// Поле поиска поднимаем наверх, чтобы подсказки были видны над клавиатурой.
+document.addEventListener("focusin",e=>{if(!["q","pq"].includes(e.target.id))return;const el=e.target;setTimeout(()=>{const hd=document.querySelector("header");const off=(hd?hd.getBoundingClientRect().height:60)+8;window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-off,behavior:"smooth"})},250)});
 document.addEventListener("input",e=>{
   if(e.target.id==="pq"&&photo){photo.q=e.target.value;$("#pres").innerHTML=photoFind();return}
   if(e.target.dataset.pg!==undefined&&photo){const k=+e.target.dataset.pg,x=photo.sel[k];x.g=+e.target.value||0;$("#pk"+k).textContent=fmt(FOODS[x.i][1]*x.g/100)+" ккал";return photoCta()}
   if(e.target.id==="gGoal"){const g=+e.target.value,w=Math.round(curW()||S.profile.w);$("#gTwF").hidden=g===1;$("#gTw").value=g===2?w+5:w-5;$("#gNorm").value=goalNorm(g,curW()||S.profile.w)}
   if(e.target.id==="goal"&&$("#twF")){const g=+e.target.value,w=+$("#w").value||70;$("#twF").hidden=g===1;$("#tw").value=g===2?w+5:w-5}
   if(e.target.id==="sayT"){sayText=e.target.value;return}
-  if(e.target.id==="q"){q=e.target.value;$("#res").innerHTML=foodRows()}
+  if(e.target.id==="q"){q=e.target.value;$("#res").innerHTML=foodRows();$("#view").classList.toggle("searching",!!q.trim())}
   if((e.target.id==="grams"||e.target.id==="k100")&&$("#kc")){$("#kc").textContent=fmt((+$("#k100").value||0)*(+$("#grams").value||0)/100)+" ккал"}
 });
 document.addEventListener("click",e=>{
