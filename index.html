@@ -282,7 +282,64 @@ const curDay=()=>viewDay||dk();
 const METRIKA_ID=114217032;
 const GOAL_RU={goal_set:"Изменил цель",weight:"Записал вес",water:"Выпил воды",share:"Поделился",add_food:"Записал еду",photo:"Фото блюда",scan:"Скан упаковки",say:"Голосовой ввод",mimo_order:"Заказ мимо рта",crave_tile:"Клик по витрине"};
 function goal(n){try{if(METRIKA_ID&&window.ym){ym(METRIKA_ID,"reachGoal",n);ym(METRIKA_ID,"params",{"Действие":GOAL_RU[n]||n})}}catch(e){}}
-if(METRIKA_ID){(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})(window,document,"script","https://mc.yandex.ru/metrika/tag.js?id="+METRIKA_ID,"ym");ym(METRIKA_ID,"init",{ssr:true,webvisor:true,clickmap:true,trackLinks:true,accurateTrackBounce:true})}
+if(METRIKA_ID){(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})(window,document,"script","https://mc.yandex.ru/metrika/tag.js?id="+METRIKA_ID,"ym");ym(METRIKA_ID,"init",{ssr:true,webvisor:false,clickmap:false,trackLinks:false,accurateTrackBounce:true})}
+const PILOT_KEY="mimorta-pilot";
+const PILOT_GOALS=["app_first_open","first_order_start","first_order_complete","return_d1","return_d7"];
+const goalsInFlight=new Set();
+
+function pilotState(){
+  try{
+    const x=JSON.parse(localStorage.getItem(PILOT_KEY));
+    if(x&&typeof x.day==="string"&&x.goals&&typeof x.goals==="object")return x;
+  }catch(e){}
+  return null;
+}
+
+function trackPilotGoal(name,firstVisit=false){
+  if(!METRIKA_ID)return;
+  try{
+    const p=pilotState()||(firstVisit?{day:dk(),goals:{}}:null);
+    if(!p)return;
+    if(p.goals[name]===undefined){
+      p.goals[name]=false;
+      localStorage.setItem(PILOT_KEY,JSON.stringify(p));
+    }
+    syncPilotGoals();
+  }catch(e){}
+}
+
+function syncPilotGoals(){
+  if(!METRIKA_ID||!window.ym||navigator.onLine===false)return;
+  const p=pilotState();
+  if(!p)return;
+  for(const name of PILOT_GOALS){
+    if(p.goals[name]!==false||goalsInFlight.has(name))continue;
+    goalsInFlight.add(name);
+    try{
+      ym(METRIKA_ID,"reachGoal",name,{},()=>{
+        try{
+          const latest=pilotState();
+          if(latest?.day===p.day){
+            latest.goals[name]=true;
+            localStorage.setItem(PILOT_KEY,JSON.stringify(latest));
+          }
+        }catch(e){}finally{goalsInFlight.delete(name)}
+      });
+    }catch(e){goalsInFlight.delete(name)}
+  }
+}
+
+function trackPilotVisit(){
+  if(document.visibilityState==="hidden")return;
+  const p=pilotState();
+  if(p){
+    const days=(Date.parse(dk())-Date.parse(p.day))/86400000;
+    if(days===1||days===7)trackPilotGoal("return_d"+days);
+    else syncPilotGoals();
+  }else if(!storageMessage&&!S.hello&&!S.profile&&!S.days.length&&!S.active){
+    trackPilotGoal("app_first_open",true);
+  }
+}
 let cat="Всё", cart={}, tab="diary", order=S.active||null, addMeal=0, pick=null, q="";
 
 function emptyDiary(){return {profile:null,log:{},orders:[],days:[],active:null}}
@@ -967,6 +1024,7 @@ function renderCart(){
 
 function startOrder(){
   goal("mimo_order");
+  if(!S.orders.length)trackPilotGoal("first_order_start");
   const ci=cartInfo();
   const c=COURIERS[Math.floor(Math.random()*COURIERS.length)];
   order={start:Date.now(),items:{...cart},p:ci.p+149,k:ci.k,courier:c,excuse:EXCUSES[Math.floor(Math.random()*EXCUSES.length)],ids:Object.keys(cart),first:Object.keys(cart).map(id=>dish(id).e).join("")};
@@ -1018,7 +1076,10 @@ function finishOrder(){
   S.orders.unshift({d,day,k:o.k,p:o.p,e:o.first,ids:o.ids});
   markDay(day);
   S.lastReward={k:o.k,p:o.p,excuse:o.excuse};
-  S.active=null;order=null;save();go("reward");
+  S.active=null;order=null;
+  const persisted=save();
+  if(persisted&&S.orders.length===1)trackPilotGoal("first_order_complete");
+  go("reward");
 }
 
 function renderReward(){
@@ -1166,6 +1227,10 @@ setInterval(()=>{
 if(order)tab="track";else if(!S.profile)tab=S.hello?"setup":"hello";
 showStorageMessage();
 render();
+trackPilotVisit();
+window.addEventListener("pageshow",trackPilotVisit);
+window.addEventListener("online",syncPilotGoals);
+document.addEventListener("visibilitychange",trackPilotVisit);
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
