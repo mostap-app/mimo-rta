@@ -165,16 +165,31 @@ textarea.search{font:inherit;font-size:16px;resize:none;color:inherit}
 .quick{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .quick button{padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;min-height:40px}
 .bigk{font-family:var(--display);font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:14px}
-.week{display:flex;flex-direction:column;gap:10px;margin-top:12px}
-.wd{display:grid;grid-template-columns:28px minmax(0,1fr) 12ch;gap:10px;align-items:center;font-size:13px;font-variant-numeric:tabular-nums}
-.wd>span:last-child{text-align:right;overflow-wrap:anywhere}
-.bar{height:12px;border-radius:6px;background:var(--bg);border:1px solid var(--line);overflow:hidden;display:flex}
-.bar i{display:block;height:100%;background:var(--ink)}
-.bar i.m{background:var(--save)}
-.bar i.o{background:var(--accent)}
-.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
-.legend span{display:flex;align-items:center;gap:6px}
-.legend span::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--c)}
+.week{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0 4px;margin-top:8px;font-size:13px;font-variant-numeric:tabular-nums}
+.week th,.week td{padding:7px 6px;text-align:left;vertical-align:middle}
+.week thead th{padding-block:4px;font-size:12px;font-weight:600;color:var(--muted)}
+.week thead th:first-child{width:27%}
+.week thead th:last-child{width:28%}
+.week td:last-child,.week thead th:last-child{text-align:right}
+.week th[scope=row]{font-weight:500;white-space:nowrap}
+.week time{display:block;color:var(--muted);font-size:12px}
+.week .week-today>*{background:var(--bg)}
+.week-today th{border-radius:10px 0 0 10px}
+.week-today td:last-child{border-radius:0 10px 10px 0}
+.week-amount{display:flex;justify-content:space-between;gap:2px 4px;flex-wrap:wrap;overflow-wrap:anywhere}
+.week-over{color:var(--accent-text);font-weight:700}
+.week-saved{color:var(--save-text);font-weight:700;overflow-wrap:anywhere}
+.week-empty{color:var(--muted);font-size:12px;font-weight:400}
+.week-track{position:relative;display:flex;height:9px;margin-top:4px;border-radius:6px;background:var(--line);overflow:hidden}
+.week-track i{height:100%;background:var(--ink)}
+.week-track .week-over{background:var(--accent)}
+.week-track::after{content:"";position:absolute;inset:0 auto 0 var(--week-limit);border-left:2px dashed var(--muted);box-shadow:1px 0 var(--surface)}
+.week-key{display:flex;gap:4px 14px;flex-wrap:wrap;margin-top:4px;color:var(--muted);font-size:12px}
+.week-key span{display:flex;gap:6px;align-items:center}
+.week-key span::before{content:"";flex:none}
+.week-key .week-reference::before{height:11px;border-left:2px dashed var(--muted)}
+.week-key .week-excess::before{width:9px;height:9px;border-radius:3px;background:var(--accent)}
+.week-note{margin-top:5px}
 .photo-btn{margin-top:12px;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;border-radius:18px;border:1.5px dashed var(--line);background:var(--surface);font-weight:700;cursor:pointer;min-height:52px}
 .photo-btn svg{width:22px;height:22px}
 .photo-btn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
@@ -1108,11 +1123,41 @@ function renderReward(){
 }
 
 /* ---------- Итоги ---------- */
+function renderWeek(N){
+  const date=new Date();
+  date.setHours(12,0,0,0);
+  const label=new Intl.DateTimeFormat("ru-RU",{weekday:"short",day:"2-digit",month:"2-digit"});
+  const days=Array.from({length:7},()=>{
+    const key=dk(date);
+    const day={key,label:label.format(date),eaten:eatenOn(key),saved:mimoOn(key),logged:!!S.log[key]?.length};
+    date.setDate(date.getDate()-1);
+    return day;
+  });
+  const max=Math.max(N*1.12,...days.map(day=>day.eaten));
+  const percent=amount=>(amount/max*100).toFixed(2)+"%";
+  return `<section class="sheet" aria-labelledby="week-title">
+     <h2 id="week-title">Последние 7 дней</h2>
+     <p class="note week-note">Записи в дневнике относительно текущей дневной нормы.</p>
+     <table class="week" aria-labelledby="week-title" style="--week-limit:${percent(N)}">
+       <thead><tr><th scope="col">День</th><th scope="col">Съедено, ккал</th><th scope="col">Мимо рта, ккал</th></tr></thead>
+       <tbody>${days.map((day,index)=>{
+         const within=Math.min(day.eaten,N);
+         const excess=day.eaten-within;
+         return `<tr class="${index===0?"week-today":""}">
+           <th scope="row">${index===0?"<strong>Сегодня</strong>":""}<time datetime="${day.key}">${day.label}</time></th>
+           <td>${day.logged?`<div class="week-amount"><b>${fmt(day.eaten)}</b>${excess?`<span class="week-over" aria-label="${fmt(excess)} ккал сверх нормы">+${fmt(excess)}</span>`:""}</div>
+             <div class="week-track" aria-hidden="true"><i style="width:${percent(within)}"></i>${excess?`<i class="week-over" style="width:${percent(excess)}"></i>`:""}</div>`:'<span class="week-empty">Нет записей</span>'}</td>
+           <td>${day.saved?`<span class="week-saved">${fmt(day.saved)}</span>`:'<span class="week-empty" aria-label="Без виртуальных заказов">—</span>'}</td>
+         </tr>`;
+       }).join("")}</tbody>
+     </table>
+     <div class="week-key"><span class="week-reference">Норма ${fmt(N)} ккал</span><span class="week-excess">Сверх нормы</span></div>
+     <p class="note week-note">«Мимо рта» — калории виртуальных заказов.</p>
+   </section>`;
+}
+
 function renderMe(){
   const t=totals(), N=norm();
-  const days=[];const d=new Date();d.setDate(d.getDate()-6);
-  const wd=["вс","пн","вт","ср","чт","пт","сб"];
-  let max=N;for(let i=0;i<7;i++){const k=dk(d);const e=eatenOn(k),m=mimoOn(k);max=Math.max(max,e+m);days.push({w:wd[d.getDay()],e,m});d.setDate(d.getDate()+1)}
   $("#view").innerHTML=`
    <h1>Ваши итоги</h1>
    <div class="saved-strip">
@@ -1121,10 +1166,7 @@ function renderMe(){
      <div class="kpi"><div class="l">Заказов</div><div class="v">${t.n}</div></div>
      <div class="kpi"><div class="l">≈ жира</div><div class="v">${fmt(t.k/7.7)} г</div></div>
    </div>
-   <div class="sheet"><h2>Неделя</h2>
-     <div class="week">${days.map(x=>`<div class="wd"><span class="muted">${x.w}</span><div class="bar" aria-hidden="true"><i class="${x.e>N?"o":""}" style="width:${(x.e/max*100).toFixed(1)}%"></i><i class="m" style="width:${(x.m/max*100).toFixed(1)}%"></i></div><span>${x.e||x.m?`${fmt(x.e)}${x.m?` / <span style="color:var(--save-text)">−${fmt(x.m)}</span>`:""}`:`<span class="muted">—</span>`}</span></div>`).join("")}</div>
-     <div class="legend"><span style="--c:var(--ink)">Съедено</span><span style="--c:var(--accent)">Сверх нормы</span><span style="--c:var(--save)">Мимо рта</span></div>
-   </div>
+   ${renderWeek(N)}
    ${weightChart()}
    <button class="sheet invite" data-share="invite"><span class="ie" aria-hidden="true">🤝</span><span><b>Худеть вместе легче</b><span class="kcal">Пригласите друга: вдвоём проще держать серию и не срываться</span></span><span class="wbtn">Пригласить</span></button>
    <div class="sheet"><div class="tot"><span class="muted">Дневная норма</span><span>${fmt(N)} ккал</span></div><button class="ghost" data-go="setup">${S.profile?"Изменить данные":"Рассчитать норму"}</button></div>
