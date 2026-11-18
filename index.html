@@ -898,25 +898,22 @@ function parseLabel(raw){
 
 }
 let labelQueue=Promise.resolve();
-function readLabel(img,st){
-  const task=labelQueue.then(()=>recognizeLabel(img,st));
+function readLabel(img){
+  const task=labelQueue.then(()=>recognizeLabel(img));
   labelQueue=task.catch(()=>{});
   return task;
 }
-async function recognizeLabel(img,st){
+async function recognizeLabel(img){
   await loadScript("scan/tesseract.min.js");
   if(!ocrW){
-    st("Читаю этикетку…");
     const base=new URL("scan/",location.href).href;
     ocrW=await Tesseract.createWorker("rus",1,{workerPath:base+"worker.min.js",corePath:base,langPath:base.replace(/\/$/,""),gzip:true});
   }
-  st("Читаю этикетку…");
   await ocrW.setParameters({tessedit_pageseg_mode:"3"});
   const {data}=await ocrW.recognize(toCanvas(img,2000),{},{text:true,blocks:true});
   const r=parseLabel(data.text||"");r.n=guessName(data);
   r.weights=r.g?[r.g]:[];
   {
-    st("Уточняю текст в центре этикетки…");
     const crop=document.createElement("canvas");
     const sourceWidth=Math.max(1,Math.round(img.naturalWidth*.56));
     const scale=Math.min(2,2800/Math.max(sourceWidth,img.naturalHeight));
@@ -943,18 +940,19 @@ async function startScan(file,more=false){
   if(!more&&tab!=="add"){const hr=new Date().getHours();addMeal=hr<11?0:hr<16?1:hr<21?2:3}
   if(previous)addMeal=+$("#ml").value;
   if(scan&&scan.url)URL.revokeObjectURL(scan.url);
-  scan={url:URL.createObjectURL(file),status:"Ищу штрихкод…",n:previous?$("#fn").value.trim():"",k100:previous?+$("#k100").value||"":"",g:previous?+$("#grams").value||"":"",src:"",code:previous?.code||"",weights:previous?.weights?.slice()||[],edited:{...previous?.edited}};pick=null;go("scan");
+  scan={url:URL.createObjectURL(file),status:"Считываем данные с упаковки…",n:previous?$("#fn").value.trim():"",k100:previous?+$("#k100").value||"":"",g:previous?+$("#grams").value||"":"",src:"",code:previous?.code||"",weights:previous?.weights?.slice()||[],edited:{...previous?.edited}};pick=null;go("scan");
   const job=scan;
-  const st=t=>{job.status=t;if(scan===job&&tab==="scan")renderScan()};
   try{
     const img=new Image();img.src=job.url;await img.decode();
     await loadScript("scan/zxing.min.js").catch(()=>{});
     const code=readBarcode(toCanvas(img,1600))||readBarcode(toCanvas(img,900));
     if(code){
-      if(job.code&&job.code!==code){job.src="На фото другой штрихкод. Снимите ту же упаковку.";return st("")}
+      if(job.code&&job.code!==code){
+        job.src="На фото другой штрихкод. Снимите ту же упаковку.";
+        return;
+      }
       job.code=code;
       const mine=(S.my||[]).find(x=>x.code===code);
-      st("Проверяю штрихкод…");
       const product=mine||await offLookup(code).catch(()=>null);
       if(product){
         if(!job.edited.fn)job.n=betterLabelName(job.n,product.n);
@@ -962,13 +960,17 @@ async function startScan(file,more=false){
         if(!mine&&product.g&&!job.weights.includes(product.g))job.weights.push(product.g);
       }
     }
-    const label=await readLabel(img,st);
+    const label=await readLabel(img);
     if(!job.edited.fn)job.n=betterLabelName(job.n,label.n);
     if(label.k100&&!job.edited.k100)job.k100=label.k100;
     job.weights=[...new Set([...job.weights,...(label.weights||[])])];
     job.src=[!job.n&&"Название не прочитано. Добавьте фото лицевой стороны или впишите название.",!job.k100&&"Уточните калорийность на 100 г по этикетке."].filter(Boolean).join(" ")||"Проверьте данные и укажите, сколько съели.";
-  }catch(e){job.src="Не получилось прочитать упаковку. Впишите данные с неё вручную."}
-  st("");
+  }catch(e){
+    job.src="Не получилось прочитать упаковку. Впишите данные с неё вручную.";
+  }finally{
+    job.status="";
+    if(scan===job&&tab==="scan")renderScan();
+  }
 }
 function renderScan(){
   if(!scan){tab="diary";return renderDiary()}
