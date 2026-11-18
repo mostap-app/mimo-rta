@@ -876,7 +876,7 @@ async function offLookup(code){
     const j=await r.json();if(j.status!==1||!j.product)return null;const p=j.product,nu=p.nutriments||{};
     let k=nu["energy-kcal_100g"];if(k==null&&nu["energy_100g"]!=null)k=nu["energy_100g"]/4.184;
     const n=[p.product_name_ru||p.product_name||p.generic_name_ru,p.brands&&p.brands.split(",")[0].trim()].filter(Boolean).join(", ");
-    return {n,k100:k!=null&&k>0?Math.round(k):"",g:parseQty(p.quantity||"")||100};
+    return {n,k100:k!=null&&k>0?Math.round(k*10)/10:"",g:/мл|ml|литр|\b[lL]\b/i.test(p.quantity||"")?0:parseQty(p.quantity||"")};
   }finally{clearTimeout(t)}
 }
 function parseLabel(raw){
@@ -886,17 +886,11 @@ function parseLabel(raw){
   const re=/(\d{1,4}(?:\.\d+)?)\s*ккал/g;
   while((m=re.exec(t))){if(ok(+m[1])){k=+m[1];break}}
   if(!k&&(m=t.match(/кдж\s*[\/|]\s*ккал[^\d]{0,30}(\d{2,4}(?:\.\d+)?)\s*[\/|]\s*(\d{1,4}(?:\.\d+)?)/))&&ok(+m[2]))k=+m[2];
-  if(!k&&(m=t.match(/ккал[^\d]{0,30}(\d{1,4}(?:\.\d+)?)/))&&ok(+m[1]))k=+m[1];
-  if(!k&&(m=t.match(/(\d{2,4})\s*кдж/))&&ok(+m[1]/4.184))k=+m[1]/4.184;
-  if(!k){const num=re=>{const m=t.match(re);return m?+m[1]:NaN};
-    const P=num(/белк[а-я]*[^\d]{0,12}(\d{1,2}(?:\.\d+)?)/),F=num(/жир[а-я]*[^\d]{0,12}(\d{1,2}(?:\.\d+)?)/),C=num(/углевод[а-я]*[^\d]{0,12}(\d{1,2}(?:\.\d+)?)/);
-    if(!isNaN(P)&&!isNaN(F)&&!isNaN(C)){const v=4*P+9*F+4*C;if(ok(v))k=v}}
-  let g=0;const tq=t.replace(/(\d)\s*(?:r|г)\s*р?\.?(?=[^a-zа-я]|$)/g,"$1 г ");
-  const gm=tq.match(/(?:нетт?о?|вес|масса|объ[её]м|масса нетто)[^\d]{0,25}(\d+(?:\.\d+)?\s*(?:кг|гр|г|мл|л))(?![a-zа-я])/);if(gm)g=parseQty(gm[1]);
-  if(!g){const re2=/(?:^|[^\d.])(\d{2,4}(?:\.\d+)?)\s*(кг|г|мл|л)(?![a-zа-я])/g;let mm;while((mm=re2.exec(tq))){const pre=tq.slice(Math.max(0,mm.index-8),mm.index+1);if(/(на|в)\s*$/.test(pre.trim().replace(/\d+$/,""))||/на\s*1?0?0?\s*$/.test(pre))continue;const v=parseQty(mm[1]+" "+mm[2]);if(v>=20&&v!==100&&v<=3000){g=v;break}}}
-  const bad=/ценност|состав|белк|жир|углев|масс|срок|хран|изготов|ккал|кдж|гост|ту /;
-  const n=(raw.split(/\n/).map(x=>x.trim()).find(x=>x.length>=6&&x.length<=45&&/^[А-ЯЁа-яё]/.test(x)&&(x.match(/[А-ЯЁа-яё]{3,}/g)||[]).length>=2&&!bad.test(x.toLowerCase()))||"").replace(/[^А-ЯЁа-яё0-9 ,.%«»"-]/g,"").trim();
-  return {k100:k?Math.round(k):0,g,n};
+  if(!k&&(m=t.match(/ккал\s*[:=][^\d]{0,30}(\d{1,4}(?:\.\d+)?)/))&&ok(+m[1]))k=+m[1];
+  if(!k&&(m=t.match(/(\d{1,4}(?:\.\d+)?)\s*кдж/))&&ok(+m[1]/4.184))k=+m[1]/4.184;
+  const mass=t.match(/(?:масса\s+нетто|вес(?:\s+нетто)?|нетто)\s*[:=–-]?\s*(\d+(?:\.\d+)?\s*(?:кг|гр|г|kg|g))(?![a-zа-я])/);
+  return {k100:k?Math.round(k*10)/10:0,g:mass?parseQty(mass[1]):0};
+
 }
 async function readLabel(img,st){
   await loadScript("scan/tesseract.min.js");
@@ -906,20 +900,34 @@ async function readLabel(img,st){
     ocrW=await Tesseract.createWorker("rus",1,{workerPath:base+"worker.min.js",corePath:base,langPath:base.replace(/\/$/,""),gzip:true});
   }
   st("Читаю этикетку…");
+  await ocrW.setParameters({tessedit_pageseg_mode:"3"});
   const {data}=await ocrW.recognize(toCanvas(img,2000),{},{text:true,blocks:true});
   const r=parseLabel(data.text||"");r.n=guessName(data);
-  if(!r.k100||!r.g){
-    st("Читаю этикетку ещё раз, внимательнее…");
-    const d2=(await ocrW.recognize(contrast(toCanvas(img,2800)))).data;
-    const r2=parseLabel((d2.text||"")+"\n"+(data.text||""));if(r2.k100)r.k100=r2.k100;if(!r.g)r.g=r2.g;
+  if(!r.k100||!r.g||!r.n){
+    st("Уточняю текст в центре этикетки…");
+    const crop=document.createElement("canvas");
+    const sourceWidth=Math.max(1,Math.round(img.naturalWidth*.56));
+    const scale=Math.min(2,2800/Math.max(sourceWidth,img.naturalHeight));
+    crop.width=Math.max(1,Math.round(sourceWidth*scale));
+    crop.height=Math.max(1,Math.round(img.naturalHeight*scale));
+    crop.getContext("2d").drawImage(img,(img.naturalWidth-sourceWidth)/2,0,sourceWidth,img.naturalHeight,0,0,crop.width,crop.height);
+    const retry=await ocrW.recognize(contrast(crop),{},{text:true,blocks:true}).catch(()=>null);
+    if(!retry)return r;
+    const second=retry.data;
+    const extra=parseLabel(second.text||"");
+    r.k100 ||= extra.k100;
+    r.g ||= extra.g;
+    r.n ||= guessName(second);
   }
   return r;
 }
-async function startScan(file){
+async function startScan(file,more=false){
+  const previous=more?scan:null;
   goal("scan");
-  if(tab!=="add"){const hr=new Date().getHours();addMeal=hr<11?0:hr<16?1:hr<21?2:3}
+  if(!more&&tab!=="add"){const hr=new Date().getHours();addMeal=hr<11?0:hr<16?1:hr<21?2:3}
+  if(previous)addMeal=+$("#ml").value;
   if(scan&&scan.url)URL.revokeObjectURL(scan.url);
-  scan={url:URL.createObjectURL(file),status:"Ищу штрихкод…",n:"",k100:"",g:100,src:"",code:""};pick=null;go("scan");
+  scan={url:URL.createObjectURL(file),status:"Ищу штрихкод…",n:previous?$("#fn").value.trim():"",k100:previous?+$("#k100").value||"":"",g:previous?+$("#grams").value||"":"",src:"",code:previous?.code||""};pick=null;go("scan");
   const job=scan;
   const st=t=>{job.status=t;if(scan===job&&tab==="scan")renderScan()};
   try{
@@ -927,19 +935,23 @@ async function startScan(file){
     await loadScript("scan/zxing.min.js").catch(()=>{});
     const code=readBarcode(toCanvas(img,1600))||readBarcode(toCanvas(img,900));
     if(code){
+      if(job.code&&job.code!==code){job.src="На фото другой штрихкод. Снимите ту же упаковку.";return st("")}
       job.code=code;
       const mine=(S.my||[]).find(x=>x.code===code);
-      if(mine){Object.assign(job,{n:mine.n,k100:mine.k100,g:mine.g||100,gOk:!!mine.g,src:"Этот продукт вы уже добавляли, данные подставлены."});return st("")}
-      st("Ищу продукт…");
-      const p=await offLookup(code).catch(()=>null);
-      if(p&&p.k100){Object.assign(job,p,{gOk:!!p.g,src:"Нашли по штрихкоду в базе продуктов. Проверьте граммы."});return st("")}
-      if(p&&p.n){job.n=p.n;job.g=p.g||100;job.gOk=!!p.g}
+      st("Проверяю штрихкод…");
+      const product=mine||await offLookup(code).catch(()=>null);
+      if(product){
+        job.n ||= product.n||"";
+        job.k100 ||= product.k100||"";
+        if(!mine)job.g ||= product.g||"";
+        if(job.n&&job.k100&&job.g){job.src="Проверьте название, калорийность и свою порцию.";return st("")}
+      }
     }
-    st("Читаю этикетку…");
-    const r=await readLabel(img,st);
-    if(r.k100){job.k100=r.k100;job.src="Прочитали калорийность с этикетки. Сверьте цифру с упаковкой."}
-    else job.src="Не смог прочитать калорийность. Впишите её с упаковки, и в следующий раз этот продукт найдётся сам.";
-    if(r.g&&!job.gOk){job.g=r.g;job.gOk=true}if(r.n&&!job.n)job.n=r.n;
+    const label=await readLabel(img,st);
+    job.n ||= label.n;
+    job.k100 ||= label.k100||"";
+    job.g ||= label.g||"";
+    job.src=job.k100?"Проверьте данные и укажите, сколько съели.":"Добавьте фото таблицы пищевой ценности или впишите калории вручную.";
   }catch(e){job.src="Не получилось прочитать упаковку. Впишите данные с неё вручную."}
   st("");
 }
@@ -951,11 +963,12 @@ function renderScan(){
    <img class="shot" src="${scan.url}" alt="Фото упаковки">
    ${scan.status?`<div class="status" role="status"><span class="spin"></span>${esc(scan.status)}</div>`:`
    <p class="note">${esc(scan.src)}</p>
+   <label class="photo-btn">Добавить фото другой стороны<input type="file" accept="image/*" id="scanMore" style="position:absolute;width:1px;height:1px;opacity:0"></label>
    <div class="field"><label for="fn">Название</label><input id="fn" value="${esc(scan.n)}" placeholder="Как называется продукт? Например, йогурт клубничный"></div>
    <div class="two"><div class="field"><label for="k100">Ккал на 100 г</label><input id="k100" type="number" inputmode="decimal" min="0" value="${scan.k100}" placeholder="с упаковки"></div>
    <div class="field"><label for="grams">Сколько грамм</label><input id="grams" type="number" inputmode="numeric" min="1" value="${scan.g}"></div></div>
-   <p class="note" style="margin-top:-6px">${scan.gOk?`Вес взяли с упаковки: ${fmt(scan.g)} г. Съели не всё — поправьте.`:`Вес на упаковке не прочитали, стоит 100 г. Впишите, сколько съели.`}</p>
-   <div class="bigk" id="kc">${fmt((+scan.k100||0)*scan.g/100)} ккал</div>
+   <p class="note">Укажите вес съеденной порции. Если подставлен вес всей упаковки, его можно изменить.</p>
+   <div class="bigk" id="kc">${scan.k100&&scan.g?fmt(scan.k100*scan.g/100)+" ккал":"—"}</div>
    <div class="field"><label for="ml">Приём пищи</label><select id="ml">${MEALS.map((m,i)=>`<option value="${i}" ${addMeal===i?"selected":""}>${m}</option>`).join("")}</select></div>
    <button class="cta" id="addScan">Добавить в дневник</button>
    <p class="note">Совет: лучше всего фотографировать штрихкод крупно, а если его нет в базе, то таблицу «Пищевая ценность».</p>`}`;
@@ -967,11 +980,19 @@ function niceCase(t){return t===t.toUpperCase()?t.charAt(0)+t.slice(1).toLowerCa
 function guessName(data){
   // Название ставим, только если в крупной чёткой строке есть слово про еду. Иначе поле пустое: лучше пусто, чем мусор.
   const bad=/ценност|состав|белк|жир|углев|масс|срок|хран|изготов|ккал|кдж|гост|претенз|адрес|вернём|продукт готов|число|месяц|рекоменд|разогре|упаков|изделия|блюда/i;
+  const textLines=(data.text||"").split(/\n/).map(t=>t.trim()).filter(Boolean);
+  const category=/^(?:йогурт|кефир|творог|молоко|сыр|сок|хлеб|шоколад|печенье|мороженое)(?:\s|$)/i;
+  for(const [i,line] of textLines.entries()){
+    if(!category.test(line)||bad.test(line)||line.length>55)continue;
+    const next=textLines[i+1]||"";
+    const name=/^(?:с|со|и)\s+[а-яё]/i.test(next)&&next.length<40&&!bad.test(next)?line+" "+next:line;
+    return name[0].toUpperCase()+name.slice(1).toLowerCase();
+  }
   const lines=[];(data.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>lines.push(l))));
   const clean=l=>{const seg=[];for(const w of l.words||[]){if(/[|]/.test(w.text)&&seg.length)break;const t=w.text.replace(/[^А-ЯЁа-яё0-9%,.-]/g,"");if(w.confidence>=60&&/[А-ЯЁа-яё]{3,}/.test(t))seg.push(t);else if(seg.length)break}return seg.join(" ")};
   const hs=lines.map(l=>l.bbox.y1-l.bbox.y0).sort((a,b)=>a-b),med=hs[hs.length>>1]||1;
   let best=null,bi=-1;
-  lines.forEach((l,i)=>{if(l.confidence<55||bad.test(l.text))return;const t=clean(l);if(t.length<3||!hasFood(t))return;
+  lines.forEach((l,i)=>{if(l.confidence<55||bad.test(l.text))return;const t=clean(l);if(t.length<3||!hasFood(t)||/^(?:с |со |и )|(?:кой|ками|ном|ным)$/i.test(t))return;
     const h=l.bbox.y1-l.bbox.y0,sc=h/med+(t.length<=40?1:0);if(!best||sc>best.sc){best={t,h,sc};bi=i}});
   if(!best)return"";
   const nx=lines[bi+1];if(nx&&nx.confidence>=55&&!bad.test(nx.text)){const h=nx.bbox.y1-nx.bbox.y0,t=clean(nx);if(t&&h>=best.h*0.7&&(best.t+" "+t).length<=45)best.t+=" "+t}
@@ -1188,7 +1209,7 @@ document.addEventListener("change",e=>{
   e.target.value="";
   if(e.target.id==="restoreIn")return restoreDiary(f);
   if(e.target.id==="photoIn")return startPhoto(f);
-  if(e.target.id==="scanIn")return startScan(f);
+  if(e.target.id==="scanIn"||e.target.id==="scanMore")return startScan(f,e.target.id==="scanMore");
 });
 // Поле поиска поднимаем наверх, чтобы подсказки были видны над клавиатурой.
 document.addEventListener("focusin",e=>{if(!["q","pq"].includes(e.target.id))return;const el=e.target;setTimeout(()=>{const hd=document.querySelector("header");const off=(hd?hd.getBoundingClientRect().height:60)+8;window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-off,behavior:"smooth"})},250)});
@@ -1199,7 +1220,7 @@ document.addEventListener("input",e=>{
   if(e.target.id==="goal"&&$("#twF")){const g=+e.target.value,w=+$("#w").value||70;$("#twF").hidden=g===1;$("#tw").value=g===2?w+5:w-5}
   if(e.target.id==="sayT"){sayText=e.target.value;return}
   if(e.target.id==="q"){q=e.target.value;$("#res").innerHTML=foodRows();$("#view").classList.toggle("searching",!!q.trim())}
-  if((e.target.id==="grams"||e.target.id==="k100")&&$("#kc")){$("#kc").textContent=fmt((+$("#k100").value||0)*(+$("#grams").value||0)/100)+" ккал"}
+  if((e.target.id==="grams"||e.target.id==="k100")&&$("#kc")){$("#kc").textContent=$("#k100").value&&$("#grams").value?fmt(+$("#k100").value*+$("#grams").value/100)+" ккал":"—"}
 });
 document.addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
