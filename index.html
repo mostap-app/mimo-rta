@@ -892,7 +892,13 @@ function parseLabel(raw){
   return {k100:k?Math.round(k*10)/10:0,g:mass?parseQty(mass[1]):0};
 
 }
-async function readLabel(img,st){
+let labelQueue=Promise.resolve();
+function readLabel(img,st){
+  const task=labelQueue.then(()=>recognizeLabel(img,st));
+  labelQueue=task.catch(()=>{});
+  return task;
+}
+async function recognizeLabel(img,st){
   await loadScript("scan/tesseract.min.js");
   if(!ocrW){
     st("Читаю этикетку…");
@@ -903,7 +909,8 @@ async function readLabel(img,st){
   await ocrW.setParameters({tessedit_pageseg_mode:"3"});
   const {data}=await ocrW.recognize(toCanvas(img,2000),{},{text:true,blocks:true});
   const r=parseLabel(data.text||"");r.n=guessName(data);
-  if(!r.k100||!r.g||!r.n){
+  r.weights=r.g?[r.g]:[];
+  {
     st("Уточняю текст в центре этикетки…");
     const crop=document.createElement("canvas");
     const sourceWidth=Math.max(1,Math.round(img.naturalWidth*.56));
@@ -911,13 +918,14 @@ async function readLabel(img,st){
     crop.width=Math.max(1,Math.round(sourceWidth*scale));
     crop.height=Math.max(1,Math.round(img.naturalHeight*scale));
     crop.getContext("2d").drawImage(img,(img.naturalWidth-sourceWidth)/2,0,sourceWidth,img.naturalHeight,0,0,crop.width,crop.height);
+    await ocrW.setParameters({tessedit_pageseg_mode:"11"});
     const retry=await ocrW.recognize(contrast(crop),{},{text:true,blocks:true}).catch(()=>null);
     if(!retry)return r;
     const second=retry.data;
     const extra=parseLabel(second.text||"");
     r.k100 ||= extra.k100;
-    r.g ||= extra.g;
-    r.n ||= guessName(second);
+    if(extra.g&&!r.weights.includes(extra.g))r.weights.push(extra.g);
+    r.n=betterLabelName(r.n,guessName(second));
   }
   return r;
 }
@@ -927,7 +935,7 @@ async function startScan(file,more=false){
   if(!more&&tab!=="add"){const hr=new Date().getHours();addMeal=hr<11?0:hr<16?1:hr<21?2:3}
   if(previous)addMeal=+$("#ml").value;
   if(scan&&scan.url)URL.revokeObjectURL(scan.url);
-  scan={url:URL.createObjectURL(file),status:"Ищу штрихкод…",n:previous?$("#fn").value.trim():"",k100:previous?+$("#k100").value||"":"",g:previous?+$("#grams").value||"":"",src:"",code:previous?.code||""};pick=null;go("scan");
+  scan={url:URL.createObjectURL(file),status:"Ищу штрихкод…",n:previous?$("#fn").value.trim():"",k100:previous?+$("#k100").value||"":"",g:previous?+$("#grams").value||"":"",src:"",code:previous?.code||"",weights:previous?.weights?.slice()||[],edited:{...previous?.edited}};pick=null;go("scan");
   const job=scan;
   const st=t=>{job.status=t;if(scan===job&&tab==="scan")renderScan()};
   try{
@@ -941,16 +949,15 @@ async function startScan(file,more=false){
       st("Проверяю штрихкод…");
       const product=mine||await offLookup(code).catch(()=>null);
       if(product){
-        job.n ||= product.n||"";
-        job.k100 ||= product.k100||"";
-        if(!mine)job.g ||= product.g||"";
-        if(job.n&&job.k100&&job.g){job.src="Проверьте название, калорийность и свою порцию.";return st("")}
+        if(!job.edited.fn)job.n=betterLabelName(job.n,product.n);
+        if(!job.edited.k100)job.k100 ||= product.k100||"";
+        if(!mine&&product.g&&!job.weights.includes(product.g))job.weights.push(product.g);
       }
     }
     const label=await readLabel(img,st);
-    job.n ||= label.n;
-    job.k100 ||= label.k100||"";
-    job.g ||= label.g||"";
+    if(!job.edited.fn)job.n=betterLabelName(job.n,label.n);
+    if(label.k100&&!job.edited.k100)job.k100=label.k100;
+    job.weights=[...new Set([...job.weights,...(label.weights||[])])];
     job.src=job.k100?"Проверьте данные и укажите, сколько съели.":"Добавьте фото таблицы пищевой ценности или впишите калории вручную.";
   }catch(e){job.src="Не получилось прочитать упаковку. Впишите данные с неё вручную."}
   st("");
@@ -967,7 +974,8 @@ function renderScan(){
    <div class="field"><label for="fn">Название</label><input id="fn" value="${esc(scan.n)}" placeholder="Как называется продукт? Например, йогурт клубничный"></div>
    <div class="two"><div class="field"><label for="k100">Ккал на 100 г</label><input id="k100" type="number" inputmode="decimal" min="0" value="${scan.k100}" placeholder="с упаковки"></div>
    <div class="field"><label for="grams">Сколько грамм</label><input id="grams" type="number" inputmode="numeric" min="1" value="${scan.g}"></div></div>
-   <p class="note">Укажите вес съеденной порции. Если подставлен вес всей упаковки, его можно изменить.</p>
+   ${scan.weights.length?`<div class="quick" aria-label="Варианты массы нетто">${scan.weights.map(g=>`<button data-g="${g}">${fmt(g)} г</button>`).join("")}</div>`:""}
+   <p class="note">${scan.weights.length>1?"Цифры на фото разошлись. Сверьте массу нетто и выберите вес или введите порцию.":scan.weights.length?"Проверьте массу нетто. Нажмите на вес, если съели всю упаковку, или введите свою порцию.":"Укажите вес съеденной порции."}</p>
    <div class="bigk" id="kc">${scan.k100&&scan.g?fmt(scan.k100*scan.g/100)+" ккал":"—"}</div>
    <div class="field"><label for="ml">Приём пищи</label><select id="ml">${MEALS.map((m,i)=>`<option value="${i}" ${addMeal===i?"selected":""}>${m}</option>`).join("")}</select></div>
    <button class="cta" id="addScan">Добавить в дневник</button>
@@ -977,13 +985,23 @@ function renderScan(){
 const FOOD_WORDS="паст макарон спагет лапш рамен удон йогурт кефир молок творог сыр сырок орех арахис миндал фундук кешью фисташ семечк хлеб батон багет лаваш тортил печень шоколад конфет батончик вафл пряник зефир мармелад халв сок нектар вод чай кофе какао напит лимонад квас морс компот смузи коктейл ряженк снежок айран простокваш сливк сметан масл майонез кетчуп соус колбас сосиск сардельк ветчин бекон грудинк курин куриц цыпл индейк говядин свинин телятин баранин мяс фарш котлет тефтел фрикадел наггетс рыб тунец тунц лосос сёмг семг форел сельд скумбри кальмар кревет икр крабов паштет хумус брынз моцарел пармезан фета салат суп борщ щи солянк каш гречк рис овсян хлоп мюсли гранол плов пельмен вареник блин сырник омлет яйц торт пирож пирог булочк круассан кекс маффин мороженое пломбир десерт пудинг мёд мед варень джем повидл фрукт яблок груш банан апельсин мандарин ягод клубник малин вишн черник овощ томат помидор огур картоф чипс сухар крекер хлебц пицц бургер сэндвич ролл шаурм нут фасол чечевиц горох кукуруз гриб шампиньон капуст морков свекл тыкв кабач баклажан оливк маслин изюм кураг финик чернослив булгур кускус киноа перловк пшен манк протеин гейнер".split(" ");
 function hasFood(t){t=t.toLowerCase();return FOOD_WORDS.some(w=>new RegExp("(^|[^а-яё])"+w).test(t))}
 function niceCase(t){return t===t.toUpperCase()?t.charAt(0)+t.slice(1).toLowerCase():t}
+const ingredientText=/[со]?став\s*[:：]?\s*молоко|остав\b|нормализован|пастеризованное молоко,|закваск|подсластител|стабилизатор/i;
+const productStart=/^(?:йогурт|кефир|творог|молоко|сыр|сок|хлеб|шоколад|печенье|мороженое)(?:\s|$)/i;
+function betterLabelName(current="",next=""){
+  function rank(name){
+    if(!name||ingredientText.test(name))return 0;
+    return (productStart.test(name)?100:1)+(/\s(?:с|со)\s/i.test(name)?10:0);
+  }
+  if(rank(next)>rank(current))return next;
+  return rank(current)?current:"";
+}
 function guessName(data){
   // Название ставим, только если в крупной чёткой строке есть слово про еду. Иначе поле пустое: лучше пусто, чем мусор.
   const bad=/ценност|состав|белк|жир|углев|масс|срок|хран|изготов|ккал|кдж|гост|претенз|адрес|вернём|продукт готов|число|месяц|рекоменд|разогре|упаков|изделия|блюда/i;
   const textLines=(data.text||"").split(/\n/).map(t=>t.trim()).filter(Boolean);
-  const category=/^(?:йогурт|кефир|творог|молоко|сыр|сок|хлеб|шоколад|печенье|мороженое)(?:\s|$)/i;
+
   for(const [i,line] of textLines.entries()){
-    if(!category.test(line)||bad.test(line)||line.length>55)continue;
+    if(!productStart.test(line)||ingredientText.test(line)||bad.test(line)||line.length>55)continue;
     const next=textLines[i+1]||"";
     const name=/^(?:с|со|и)\s+[а-яё]/i.test(next)&&next.length<40&&!bad.test(next)?line+" "+next:line;
     return name[0].toUpperCase()+name.slice(1).toLowerCase();
@@ -992,10 +1010,10 @@ function guessName(data){
   const clean=l=>{const seg=[];for(const w of l.words||[]){if(/[|]/.test(w.text)&&seg.length)break;const t=w.text.replace(/[^А-ЯЁа-яё0-9%,.-]/g,"");if(w.confidence>=60&&/[А-ЯЁа-яё]{3,}/.test(t))seg.push(t);else if(seg.length)break}return seg.join(" ")};
   const hs=lines.map(l=>l.bbox.y1-l.bbox.y0).sort((a,b)=>a-b),med=hs[hs.length>>1]||1;
   let best=null,bi=-1;
-  lines.forEach((l,i)=>{if(l.confidence<55||bad.test(l.text))return;const t=clean(l);if(t.length<3||!hasFood(t)||/^(?:с |со |и )|(?:кой|ками|ном|ным)$/i.test(t))return;
+  lines.forEach((l,i)=>{if(l.confidence<55||ingredientText.test(l.text)||bad.test(l.text))return;const t=clean(l);if(t.length<3||!hasFood(t)||/^(?:с |со |и )|(?:кой|ками|ном|ным)$/i.test(t))return;
     const h=l.bbox.y1-l.bbox.y0,sc=h/med+(t.length<=40?1:0);if(!best||sc>best.sc){best={t,h,sc};bi=i}});
   if(!best)return"";
-  const nx=lines[bi+1];if(nx&&nx.confidence>=55&&!bad.test(nx.text)){const h=nx.bbox.y1-nx.bbox.y0,t=clean(nx);if(t&&h>=best.h*0.7&&(best.t+" "+t).length<=45)best.t+=" "+t}
+  const nx=lines[bi+1];if(nx&&nx.confidence>=55&&!ingredientText.test(nx.text)&&!bad.test(nx.text)){const h=nx.bbox.y1-nx.bbox.y0,t=clean(nx);if(t&&h>=best.h*0.7&&(best.t+" "+t).length<=45)best.t+=" "+t}
   let n=niceCase(best.t.replace(/[,.-]+$/,"").trim());
   return n.length>45?n.slice(0,45).replace(/\s\S*$/,""):n;
 }
@@ -1214,6 +1232,7 @@ document.addEventListener("change",e=>{
 // Поле поиска поднимаем наверх, чтобы подсказки были видны над клавиатурой.
 document.addEventListener("focusin",e=>{if(!["q","pq"].includes(e.target.id))return;const el=e.target;setTimeout(()=>{const hd=document.querySelector("header");const off=(hd?hd.getBoundingClientRect().height:60)+8;window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-off,behavior:"smooth"})},250)});
 document.addEventListener("input",e=>{
+  if(tab==="scan"&&scan&&["fn","k100","grams"].includes(e.target.id))scan.edited[e.target.id]=true;
   if(e.target.id==="pq"&&photo){photo.q=e.target.value;$("#pres").innerHTML=photoFind();return}
   if(e.target.dataset.pg!==undefined&&photo){const k=+e.target.dataset.pg,x=photo.sel[k];x.g=+e.target.value||0;$("#pk"+k).textContent=fmt(FOODS[x.i][1]*x.g/100)+" ккал";return photoCta()}
   if(e.target.id==="gGoal"){const g=+e.target.value,w=Math.round(curW()||S.profile.w);$("#gTwF").hidden=g===1;$("#gTw").value=g===2?w+5:w-5;$("#gNorm").value=goalNorm(g,curW()||S.profile.w)}
