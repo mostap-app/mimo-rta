@@ -275,7 +275,7 @@ const ICON_MIC=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 const MEALS=["Завтрак","Обед","Ужин","Перекус"];
 const CATS=["Всё","Бургеры","Стритфуд","Пицца","Азия","Десерты","Напитки"];
 const COURIERS=[["Артём","на велосипеде"],["Лейла","на самокате"],["Игорь","пешком"],["Вика","на электровелосипеде"]];
-const STEPS=["Ресторан принял заказ","Повар готовит","Курьер забрал заказ","Курьер в пути","Курьер у двери"];
+const STEPS=["Ресторан принял заказ","Повар готовит","Курьер забрал заказ","Курьер в пути","Заказ проехал мимо"];
 const EXCUSES=["Курьер понюхал пиццу и решил, что вам это не нужно.","Курьер свернул в парк и пошёл гулять вместо вас.","Курьер съел всё сам. Ради вашего здоровья.","Заказ растворился в воздухе. Вместе с калориями.","Курьер проехал мимо рта. Как и было задумано."];
 const TRIP_SEC=45;
 const ACT=[["Почти не двигаюсь",1.2],["Хожу пешком, иногда спорт",1.375],["Спорт 3–5 раз в неделю",1.55]];
@@ -509,6 +509,7 @@ function renderDiary(){
   $("#view").innerHTML=`
    <div class="daynav"><button data-day="-1" aria-label="Предыдущий день">${IC.L}</button><h1>${dayTitle(day)}</h1><button data-day="1" aria-label="Следующий день" ${day===dk()?"disabled":""}>${IC.R}</button></div>
    ${S.profile?"":`<button class="addline" data-go="setup">Рассчитать мою норму калорий →</button>`}
+   ${order?`<button class="ghost" data-go="track">Вернуться к доставке</button>`:S.lastReward&&S.orders[0]?.day===day&&S.lastReward.d===S.orders[0].d?`<button class="ghost" data-go="reward">Посмотреть итог заказа</button>`:""}
    <div class="sheet today">
      <div class="ring" role="img" aria-label="Съедено ${fmt(eaten)} из ${fmt(N)} ккал">
        <svg viewBox="0 0 150 150"><circle cx="75" cy="75" r="62" fill="none" stroke="var(--line)" stroke-width="14"/><circle cx="75" cy="75" r="62" fill="none" stroke="${left<0?"var(--accent)":"var(--ink)"}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(frac*C).toFixed(1)} ${C.toFixed(1)}"/></svg>
@@ -1053,27 +1054,27 @@ function renderTrack(){
   if(!order){tab="menu";return renderMenu()}
   const pr=progress();
   const si=pr<.12?0:pr<.35?1:pr<.5?2:pr<.97?3:4;
-  const left=Math.max(0,Math.ceil(TRIP_SEC*(1-pr)));
-  const mins=Math.max(1,Math.ceil(left/45*25));
+  const left=Math.max(0,Math.ceil((order.start+TRIP_SEC*1000-Date.now())/1000));
+  const timer=`${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;
   $("#view").innerHTML=`
-   <span class="tag">Заказ в пути</span>
+   <span class="tag">Виртуальная доставка</span>
    <h1 style="margin-top:4px">${STEPS[si]}</h1>
-   <div class="map">${mapSVG(pr)}</div>
+   <div class="map">${mapSVG(Math.max(0, (pr-.5)/.47))}</div>
    <div class="eta">
      <div class="courier"><div class="ava">${esc(order.courier[0].charAt(0))}</div><div><div style="font-weight:600">${esc(order.courier[0])}</div><div class="kcal">${esc(order.courier[1])}</div></div></div>
-     <div style="text-align:right"><div class="kcal">Прибудет через</div><div class="big">${pr>=.97?"0":mins} мин</div></div>
+     <div style="text-align:right"><div class="kcal">До итога</div><div class="big">${timer}</div></div>
    </div>
+   <button class="ghost" data-go="diary">В дневник</button>
    <div class="sheet"><ol class="steps">${STEPS.map((s,i)=>`<li class="${i<si?"done":i===si?"now":""}"><span class="dot"></span>${s}</li>`).join("")}</ol></div>
    <div class="sheet"><div class="tot"><span class="muted">В заказе</span>${order.ids?`<span class="thumbs">${order.ids.map(id=>PH[id]?`<img src="${PH[id]}" alt="">`:(dish(id)?.e||"🍽️")).join("")}</span>`:`<span>${esc(order.first)}</span>`}</div>
-   <div class="tot"><span class="muted">Калорийность</span><span>${fmt(order.k)} ккал</span></div></div>
-   <button class="ghost" id="skip">Ускорить (демо)</button>`;
+   <div class="tot"><span class="muted">Калорийность</span><span>${fmt(order.k)} ккал</span></div></div>`;
 }
 
 function mapSVG(pr){
   // маршрут объезжает точку «Вы», как в логотипе
   const pts=[[20,120],[90,120],[120,190],[250,190],[280,120],[350,120]];
   const seg=[];let L=0;for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);seg.push(d);L+=d}
-  let t=Math.min(pr/.97,1)*L,x=pts[0][0],y=pts[0][1];
+  let t=Math.min(pr,1)*L,x=pts[0][0],y=pts[0][1];
   for(let i=0;i<seg.length;i++){if(t<=seg[i]){const f=t/seg[i];x=pts[i][0]+(pts[i+1][0]-pts[i][0])*f;y=pts[i][1]+(pts[i+1][1]-pts[i][1])*f;break}t-=seg[i];x=pts[i+1][0];y=pts[i+1][1]}
   const path="M"+pts.map(p=>p.join(" ")).join(" L");
   const blocks=[[20,20,80,70],[130,10,90,40],[250,20,90,70],[10,150,80,60],[290,150,70,60]];
@@ -1092,11 +1093,12 @@ function finishOrder(){
   const d=o.start+TRIP_SEC*1000, day=dk(new Date(d));
   S.orders.unshift({d,day,k:o.k,p:o.p,e:o.first,ids:o.ids});
   markDay(day);
-  S.lastReward={k:o.k,p:o.p,excuse:o.excuse};
+  S.lastReward={d,k:o.k,p:o.p,excuse:o.excuse};
   S.active=null;order=null;
   const persisted=save();
   if(persisted&&S.orders.length===1)trackPilotGoal("first_order_complete");
-  go("reward");
+  if(tab==="track")go("reward");
+  else if(tab==="diary")renderDiary();
 }
 
 function renderReward(){
@@ -1258,7 +1260,6 @@ document.addEventListener("click",e=>{
   if(b.id==="retrySave"){if(save())toast("Дневник сохранён");return}
   if(b.id==="cartBtn")return go("cart");
   if(b.id==="checkout")return startOrder();
-  if(b.id==="skip"){order.start=Date.now()-TRIP_SEC*1000*.9;S.active=order;save();return render()}
   if(b.id==="reset"){if(b.dataset.sure){const next=emptyDiary();if(!save(next))return;S=next;order=null;undo=null;applyFoodHistory();return go("setup")}b.dataset.sure=1;b.textContent="Нажмите ещё раз, чтобы стереть всё";}
 });
 
