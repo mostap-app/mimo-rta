@@ -77,6 +77,8 @@ nav.tabs button[aria-current="true"]{color:var(--accent-text)}
 .cta{width:100%;margin-top:16px;background:var(--accent);color:var(--accent-ink);border-radius:18px;padding:16px;font-weight:700;font-size:16px}
 .ghost{width:100%;margin-top:10px;padding:14px;border-radius:18px;border:1px solid var(--line);font-weight:600}
 .note{font-size:13px;color:var(--muted);margin-top:10px}
+.storage-warning{margin-top:12px;padding:12px;border:1px solid var(--accent);border-radius:14px;background:var(--surface)}
+.storage-warning .two{margin-top:8px}
 .map{position:relative;height:220px;border-radius:20px;overflow:hidden;margin-top:14px;background:var(--surface);border:1px solid var(--line)}
 .map svg{width:100%;height:100%;display:block}
 .eta{display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px;gap:12px}
@@ -192,6 +194,12 @@ textarea.search{font:inherit;font-size:16px;resize:none;color:inherit}
     <div class="logo"><svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="84" r="36" fill="none" stroke="var(--ring)" stroke-width="20"/><path d="M12 88 H30 C48 88 46 172 100 172 C154 172 152 88 170 88 H176" fill="none" stroke="var(--route)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M164 70 L184 88 L164 106" fill="none" stroke="var(--route)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/></svg>мимо рта</div>
     <button class="streak" id="streak" hidden></button>
   </header>
+  <aside class="storage-warning" id="storageWarning" hidden>
+    <div role="alert" id="storageMessage"></div>
+    <div class="two"><button class="ghost" id="retrySave">Повторить запись</button><button class="ghost" id="emergencyBackup">Сохранить копию</button></div>
+    <label class="ghost restore" for="restoreIn">Восстановить из копии</label>
+  </aside>
+  <input type="file" accept=".json,application/json" id="restoreIn" hidden>
   <main id="view"></main>
 </div>
 <div class="cartbar" id="cartbar" hidden><button id="cartBtn"><span id="cartCount">Корзина</span><span id="cartSum"></span></button></div>
@@ -265,6 +273,8 @@ const dk=d=>{d=d||new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).p
 function dayTitle(k){const t=dk(),y=new Date();y.setDate(y.getDate()-1);if(k===t)return"Сегодня";if(k===dk(y))return"Вчера";return new Date(k+"T12:00:00").toLocaleDateString("ru-RU",{weekday:"short",day:"numeric",month:"long"})}
 function plural(n,a,b,c){n=Math.abs(n)%100;const m=n%10;if(n>10&&n<20)return c;if(m>1&&m<5)return b;if(m==1)return a;return c}
 
+const DIARY_KEY="mimorta";
+let storedDiary, unreadableDiary=false, storageMessage="", storageRevision=0;
 let S=load();
 let photo=null, ortSess=null, EM=null, scan=null, ocrW=null, editIdx=null, viewDay=null, undo=null;
 const curDay=()=>viewDay||dk();
@@ -275,16 +285,107 @@ function goal(n){try{if(METRIKA_ID&&window.ym){ym(METRIKA_ID,"reachGoal",n);ym(M
 if(METRIKA_ID){(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0];k.async=1;k.src=r;a.parentNode.insertBefore(k,a)})(window,document,"script","https://mc.yandex.ru/metrika/tag.js?id="+METRIKA_ID,"ym");ym(METRIKA_ID,"init",{ssr:true,webvisor:true,clickmap:true,trackLinks:true,accurateTrackBounce:true})}
 let cat="Всё", cart={}, tab="diary", order=S.active||null, addMeal=0, pick=null, q="";
 
-function load(){
-  const d={profile:null,log:{},orders:[],days:[],active:null};
-  try{
-    let s=JSON.parse(localStorage.getItem("mimorta")||"null");
-    if(!s){const old=JSON.parse(localStorage.getItem("sytglazami")||"null");if(old)s={orders:(old.orders||[]).map(o=>({...o,day:o.day||dk(new Date(o.d))})),days:old.days||[],active:old.active||null,lastReward:old.lastReward}}
-    return s?Object.assign(d,s):d;
-  }catch(e){return d}
+function emptyDiary(){return {profile:null,log:{},orders:[],days:[],active:null}}
+
+function parseDiary(raw,legacy=false){
+  const s=JSON.parse(raw);
+  const obj=x=>x!==null&&typeof x==="object"&&!Array.isArray(x);
+  const num=x=>Number.isFinite(x)&&x>=0;
+  const pos=x=>num(x)&&x>0;
+  const str=x=>typeof x==="string";
+  const date=x=>str(x)&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&dk(new Date(x+"T12:00:00"))===x;
+  const timestamp=x=>num(x)&&x<=8640000000000000;
+  const list=(x,valid)=>Array.isArray(x)&&x.every(valid);
+  const dict=(x,valid,key=()=>true)=>obj(x)&&Object.entries(x).every(([k,v])=>key(k)&&valid(v));
+  const ids=x=>list(x,id=>(str(id)||num(id))&&/^[1-9]\d*$/.test(String(id)));
+  const sums=x=>obj(x)&&num(x.k)&&num(x.p);
+  const record=x=>obj(x)&&str(x.n)&&num(x.k)&&[0,1,2,3].includes(x.m)&&(x.g===undefined||num(x.g))&&(x.k100===undefined||num(x.k100));
+  const profile=x=>obj(x)&&["m","f"].includes(x.sex)&&pos(x.age)&&pos(x.h)&&pos(x.w)&&[0,1,2].includes(x.act)&&[0,1,2].includes(x.goal)&&pos(x.norm)&&(x.tw==null||num(x.tw))&&(x.w0==null||num(x.w0));
+  const done=x=>sums(x)&&timestamp(x.d)&&(x.day===undefined||date(x.day))&&(x.ids===undefined||ids(x.ids))&&(x.e===undefined||str(x.e));
+  const active=x=>sums(x)&&timestamp(x.start)&&list(x.courier,str)&&x.courier.length===2&&str(x.excuse)&&str(x.first)&&(x.ids===undefined||ids(x.ids));
+  if(!obj(s))throw new Error("Некорректная копия");
+  const {log=legacy?{}:undefined,days=legacy?[]:undefined,orders=[],profile:p=null,active:a=null,lastReward,weights,water,cup,my,kfix,hello}=s;
+  if(!dict(log,x=>list(x,record),date)||!list(days,date)||!list(orders,done)||
+     (p!==null&&!profile(p))||(a!==null&&!active(a))||
+     (lastReward!=null&&(!sums(lastReward)||!str(lastReward.excuse)))||
+     (weights!==undefined&&!list(weights,x=>obj(x)&&date(x.d)&&pos(x.w)))||
+     (water!==undefined&&!dict(water,num,date))||(cup!==undefined&&!pos(cup))||
+     (my!==undefined&&!list(my,x=>obj(x)&&str(x.n)&&pos(x.k100)&&num(x.g)&&(x.code===undefined||str(x.code))))||
+     (kfix!==undefined&&!dict(kfix,pos))||(hello!==undefined&&hello!==1)){
+    throw new Error("Некорректная копия");
+  }
+  const result={profile:p,log,orders:orders.map(o=>({...o,day:o.day||dk(new Date(o.d))})),days,active:a};
+  for(const [k,v] of Object.entries({lastReward,weights,water,cup,my,kfix,hello}))if(v!==undefined)result[k]=v;
+  return result;
 }
-function save(){try{localStorage.setItem("mimorta",JSON.stringify(S))}catch(e){}}
-function markDay(){const t=curDay();if(!S.days.includes(t))S.days.push(t)}
+
+function load(){
+  try{
+    storedDiary=localStorage.getItem(DIARY_KEY);
+    if(storedDiary!==null)return parseDiary(storedDiary);
+    const old=localStorage.getItem("sytglazami");
+    return old===null?emptyDiary():parseDiary(old,true);
+  }catch(e){
+    unreadableDiary=storedDiary!==null&&storedDiary!==undefined;
+    storageMessage=unreadableDiary?"Дневник не открылся. Сохраните исходную копию или восстановите данные из исправной копии.":"Не удалось открыть хранилище дневника. Разрешите хранение данных в браузере и повторите запись.";
+    return emptyDiary();
+  }
+}
+
+function showStorageMessage(message=storageMessage){
+  storageMessage=message;
+  $("#storageMessage").textContent=message;
+  $("#storageWarning").hidden=!message;
+  $("#retrySave").hidden=unreadableDiary;
+  $("#emergencyBackup").textContent=unreadableDiary?"Сохранить исходную копию":"Сохранить копию";
+}
+
+function save(data=S,restore=false){
+  storageRevision++;
+  if(unreadableDiary&&!restore)return false;
+  try{
+    const current=localStorage.getItem(DIARY_KEY);
+    if(current!==(storedDiary??null)){
+      showStorageMessage("Дневник изменился в другой вкладке. Сохраните копию с этой вкладки, затем обновите страницу.");
+      return false;
+    }
+    const json=JSON.stringify(data);
+    localStorage.setItem(DIARY_KEY,json);
+    storedDiary=json;
+    unreadableDiary=false;
+    showStorageMessage("");
+    return true;
+  }catch(e){
+    showStorageMessage(restore?"Не удалось записать копию. Текущий дневник сохранён.":"Изменения пока только на этом экране. Повторите запись или сохраните копию перед закрытием.");
+    return false;
+  }
+}
+
+async function restoreDiary(file){
+  const revision=++storageRevision;
+  let next;
+  try{next=parseDiary(await file.text())}
+  catch(e){if(revision===storageRevision)toast("Не удалось прочитать копию «Мимо рта». Дневник не изменён.");return}
+  if(revision!==storageRevision){toast("Дневник уже изменился. Выберите файл копии ещё раз.");return}
+  if(!save(next,true))return;
+  S=next;order=S.active;undo=null;viewDay=null;editIdx=null;
+  applyFoodHistory();
+  toast("Данные восстановлены");
+  go(order?"track":"diary");
+}
+
+async function downloadDiary(json){
+  const name=`mimo-rta-${dk()}.json`, blob=new Blob([json],{type:"application/json"});
+  const file=new File([blob],name,{type:blob.type});
+  try{
+    if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file]});return}
+  }catch(e){if(e.name==="AbortError")return}
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+function markDay(day=curDay()){if(!S.days.includes(day))S.days.push(day)}
 function streak(){
   const set=new Set(S.days);let n=0,d=new Date();
   if(!set.has(dk(d)))d.setDate(d.getDate()-1);
@@ -354,7 +455,7 @@ function renderDiary(){
      ${items.map(x=>`<div class="line"><button class="t" data-edit="${x.i}"><b>${esc(x.n)}</b><div class="kcal">${x.g?fmt(x.g)+" г · ":""}${fmt(x.k)} ккал</div></button><button class="del" data-del="${x.i}" aria-label="Удалить ${esc(x.n)}">${IC.X}</button></div>`).join("")}
      <button class="addline" data-addmeal="${mi}">+ Добавить</button>
    </div>`}).join("")}
-   ${mimoList.length?`<div class="sheet"><h2>Пронесли мимо рта</h2>${mimoList.map(o=>`<div class="line mimo-row"><div class="e" aria-hidden="true">${o.ids&&o.ids.length?pic(dish(o.ids[0])):""}</div><div class="t"><b>−${fmt(o.k)} ккал</b><div class="kcal">${new Date(o.d).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})} · ${fmt(o.p)} ₽ сэкономлено</div></div><button class="del" data-delm="${o.d}" aria-label="Удалить заказ">${IC.X}</button></div>`).join("")}</div>`:""}`;
+   ${mimoList.length?`<div class="sheet"><h2>Пронесли мимо рта</h2>${mimoList.map(o=>`<div class="line mimo-row"><div class="e" aria-hidden="true">${o.ids?.length&&dish(o.ids[0])?pic(dish(o.ids[0])):""}</div><div class="t"><b>−${fmt(o.k)} ккал</b><div class="kcal">${new Date(o.d).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})} · ${fmt(o.p)} ₽ сэкономлено</div></div><button class="del" data-delm="${o.d}" aria-label="Удалить заказ">${IC.X}</button></div>`).join("")}</div>`:""}`;
 }
 
 const nz=t=>String(t).toLowerCase().replace(/ё/g,"е");
@@ -403,7 +504,7 @@ function renderAdd(){
 function addEntry(n,k,g,k100){
   goal("add_food");
   const day=curDay();(S.log[day]=S.log[day]||[]).push({n,k:Math.round(k),g:g||0,m:addMeal,k100:k100||0});
-  markDay();save();pick=null;q="";toast("Записано");go("diary");
+  markDay();if(save())toast("Записано");pick=null;q="";go("diary");
 }
 
 function logWeight(w){S.weights=S.weights||[];const d=curDay();const x=S.weights.find(v=>v.d===dk());if(x)x.w=w;else S.weights.push({d:dk(),w});S.weights.sort((a,b)=>a.d<b.d?-1:1)}
@@ -671,8 +772,14 @@ function rememberFood(n,k100,g,code){
   S.my=S.my||[];const i=S.my.findIndex(x=>(code&&x.code===code)||x.n===n);const it={n,k100,g,code:code||""};
   if(i>=0)S.my[i]=it;else S.my.push(it);upsertFood(n,k100,g);
 }
-(S.my||[]).forEach(x=>upsertFood(x.n,x.k100,x.g));
-Object.entries(S.kfix||{}).forEach(([n,k])=>{const f=FOODS.find(x=>x[0]===n);if(f)f[1]=k});
+const originalFood=FOODS.map(f=>f.slice(1));
+function applyFoodHistory(){
+  FOODS.length=BASE_N;
+  originalFood.forEach(([k,g],i)=>{FOODS[i][1]=k;FOODS[i][2]=g});
+  (S.my||[]).forEach(x=>upsertFood(x.n,x.k100,x.g));
+  Object.entries(S.kfix||{}).forEach(([n,k])=>{const f=FOODS.find(x=>x[0]===n);if(f)f[1]=k});
+}
+applyFoodHistory();
 const loadScript=(()=>{const c={};return src=>c[src]||(c[src]=new Promise((ok,no)=>{const el=document.createElement("script");el.src=src;el.onload=ok;el.onerror=()=>{delete c[src];no(new Error("Нет связи, не загрузилось распознавание"))};document.head.appendChild(el)}))})();
 function toCanvas(img,max){const k=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement("canvas");c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);c.getContext("2d").drawImage(img,0,0,c.width,c.height);return c}
 function contrast(c){const x=c.getContext("2d"),im=x.getImageData(0,0,c.width,c.height),d=im.data;let lo=255,hi=0;
@@ -865,7 +972,7 @@ function startOrder(){
   order={start:Date.now(),items:{...cart},p:ci.p+149,k:ci.k,courier:c,excuse:EXCUSES[Math.floor(Math.random()*EXCUSES.length)],ids:Object.keys(cart),first:Object.keys(cart).map(id=>dish(id).e).join("")};
   S.active=order;save();cart={};go("track");
 }
-function progress(){return order?Math.min(1,(Date.now()-order.start)/(TRIP_SEC*1000)):0}
+function progress(){return order?Math.max(0,Math.min(1,(Date.now()-order.start)/(TRIP_SEC*1000))):0}
 
 function renderTrack(){
   if(!order){tab="menu";return renderMenu()}
@@ -878,11 +985,11 @@ function renderTrack(){
    <h1 style="margin-top:4px">${STEPS[si]}</h1>
    <div class="map">${mapSVG(pr)}</div>
    <div class="eta">
-     <div class="courier"><div class="ava">${order.courier[0][0]}</div><div><div style="font-weight:600">${order.courier[0]}</div><div class="kcal">${order.courier[1]}</div></div></div>
+     <div class="courier"><div class="ava">${esc(order.courier[0].charAt(0))}</div><div><div style="font-weight:600">${esc(order.courier[0])}</div><div class="kcal">${esc(order.courier[1])}</div></div></div>
      <div style="text-align:right"><div class="kcal">Прибудет через</div><div class="big">${pr>=.97?"0":mins} мин</div></div>
    </div>
    <div class="sheet"><ol class="steps">${STEPS.map((s,i)=>`<li class="${i<si?"done":i===si?"now":""}"><span class="dot"></span>${s}</li>`).join("")}</ol></div>
-   <div class="sheet"><div class="tot"><span class="muted">В заказе</span>${order.ids?`<span class="thumbs">${order.ids.map(id=>PH[id]?`<img src="${PH[id]}" alt="">`:dish(id).e).join("")}</span>`:`<span>${order.first}</span>`}</div>
+   <div class="sheet"><div class="tot"><span class="muted">В заказе</span>${order.ids?`<span class="thumbs">${order.ids.map(id=>PH[id]?`<img src="${PH[id]}" alt="">`:(dish(id)?.e||"🍽️")).join("")}</span>`:`<span>${esc(order.first)}</span>`}</div>
    <div class="tot"><span class="muted">Калорийность</span><span>${fmt(order.k)} ккал</span></div></div>
    <button class="ghost" id="skip">Ускорить (демо)</button>`;
 }
@@ -907,8 +1014,9 @@ function mapSVG(pr){
 
 function finishOrder(){
   const o=order;
-  S.orders.unshift({d:Date.now(),day:dk(),k:o.k,p:o.p,e:o.first,ids:o.ids});
-  markDay();
+  const d=o.start+TRIP_SEC*1000, day=dk(new Date(d));
+  S.orders.unshift({d,day,k:o.k,p:o.p,e:o.first,ids:o.ids});
+  markDay(day);
   S.lastReward={k:o.k,p:o.p,excuse:o.excuse};
   S.active=null;order=null;save();go("reward");
 }
@@ -921,7 +1029,7 @@ function renderReward(){
    <div class="badge">${LOGO}</div>
    <span class="tag">Пронесли мимо рта</span>
    <h1 style="margin-top:6px">Минус ${fmt(r.k)} ккал</h1>
-   <p class="lead">${r.excuse}</p>
+   <p class="lead">${esc(r.excuse)}</p>
    <div class="grid2">
      <div class="kpi"><div class="l">Не съедено</div><div class="v">${fmt(r.k)} ккал</div></div>
      <div class="kpi"><div class="l">В кармане</div><div class="v">${fmt(r.p)} ₽</div></div>
@@ -959,15 +1067,20 @@ function renderMe(){
    ${weightChart()}
    <button class="sheet invite" data-share="invite"><span class="ie" aria-hidden="true">🤝</span><span><b>Худеть вместе легче</b><span class="kcal">Пригласите друга: вдвоём проще держать серию и не срываться</span></span><span class="wbtn">Пригласить</span></button>
    <div class="sheet"><div class="tot"><span class="muted">Дневная норма</span><span>${fmt(N)} ккал</span></div><button class="ghost" data-go="setup">${S.profile?"Изменить данные":"Рассчитать норму"}</button></div>
-   <div class="two"><button class="ghost" id="backup">Сохранить копию</button><label class="ghost restore">Восстановить<input type="file" accept=".json,application/json" id="restoreIn" hidden></label></div>
+   <div class="two"><button class="ghost" id="backup">Сохранить копию</button><label class="ghost restore" for="restoreIn">Восстановить</label></div>
    <p class="note">Данные хранятся только в этом телефоне. Раз в неделю сохраняйте копию в «Файлы», чтобы ничего не потерять.</p>
    <button class="ghost" id="reset">Сбросить все данные</button>
    `;
 }
 
 /* ---------- События ---------- */
-document.addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(!f)return;
-  if(e.target.id==="restoreIn"){f.text().then(t=>{const d=JSON.parse(t);if(!d||!d.log||!d.days)throw 0;S=Object.assign(load(),d);order=S.active||null;save();toast("Данные восстановлены");go("diary")}).catch(()=>toast("Это не файл копии «Мимо рта»"));e.target.value="";return}if(e.target.id==="photoIn")startPhoto(f);if(e.target.id==="scanIn")startScan(f);e.target.value=""});
+document.addEventListener("change",e=>{
+  const f=e.target.files?.[0];if(!f)return;
+  e.target.value="";
+  if(e.target.id==="restoreIn")return restoreDiary(f);
+  if(e.target.id==="photoIn")return startPhoto(f);
+  if(e.target.id==="scanIn")return startScan(f);
+});
 // Поле поиска поднимаем наверх, чтобы подсказки были видны над клавиатурой.
 document.addEventListener("focusin",e=>{if(!["q","pq"].includes(e.target.id))return;const el=e.target;setTimeout(()=>{const hd=document.querySelector("header");const off=(hd?hd.getBoundingClientRect().height:60)+8;window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-off,behavior:"smooth"})},250)});
 document.addEventListener("input",e=>{
@@ -981,8 +1094,8 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
-  if(b.dataset.re){const x=recents()[+b.dataset.re];if(!x)return;const day=curDay();(S.log[day]=S.log[day]||[]).push({n:x.n,k:x.k,g:x.g||0,m:addMeal,k100:x.k100||0});goal("add_food");markDay();save();toast("Записано: "+x.n);return go("diary")}
-  if(b.id==="saveW"){const w=+$("#wNow").value;if(!(w>30&&w<300))return toast("Проверьте вес");logWeight(w);goal("weight");save();const f=forecast();toast(f&&f.done?"Цель достигнута! 🎉":f?`Записано. Цель ${fmt1(S.profile.tw)} кг к ${fdate(f.date)}`:"Записано");return go("diary")}
+  if(b.dataset.re){const x=recents()[+b.dataset.re];if(!x)return;const day=curDay();(S.log[day]=S.log[day]||[]).push({n:x.n,k:x.k,g:x.g||0,m:addMeal,k100:x.k100||0});goal("add_food");markDay();if(save())toast("Записано: "+x.n);return go("diary")}
+  if(b.id==="saveW"){const w=+$("#wNow").value;if(!(w>30&&w<300))return toast("Проверьте вес");logWeight(w);goal("weight");const f=forecast();if(save())toast(f&&f.done?"Цель достигнута! 🎉":f?`Записано. Цель ${fmt1(S.profile.tw)} кг к ${fdate(f.date)}`:"Записано");return go("diary")}
   if(b.dataset.wat){const d=curDay();S.water=S.water||{};S.water[d]=Math.max(0,(S.water[d]||0)+(+b.dataset.wat));if(+b.dataset.wat>0)goal("water");save();return render()}
   if(b.dataset.share){const t=totals();return share(b.dataset.share==="reward"&&S.orders[0]?`Я только что «заказал» еду в «Мимо рта» и не съел ${fmt(S.orders[0].k)} ккал, а ${fmt(S.orders[0].p)} ₽ остались в кармане 😄 Попробуй:`:t.n?`Я записываю еду в «Мимо рта»: уже пронёс мимо рта ${fmt(t.k)} ккал и сэкономил ${fmt(t.p)} ₽. Давай вместе:`:"Нашёл бесплатный дневник калорий «Мимо рта»: фото еды, скан упаковки, голосовой ввод. Давай вместе худеть:")}
   if(b.id==="sayMic")return sayMic();
@@ -990,7 +1103,7 @@ document.addEventListener("click",e=>{
   if(b.dataset.ptog){const x=photo.sel[+b.dataset.ptog];x.on=!x.on;$("#prows").innerHTML=photoRows();return photoCta()}
   if(b.dataset.padd){photo.sel.push({i:+b.dataset.padd,g:FOODS[+b.dataset.padd][2],on:true});photo.q="";$("#pq").value="";$("#pres").innerHTML="";$("#prows").innerHTML=photoRows();return photoCta()}
   if(b.id==="addPhoto"){const L=photo.sel.filter(x=>x.on&&x.g>0);if(!L.length)return toast("Отметьте хотя бы одно блюдо");addMeal=+$("#ml").value;const day=curDay();S.log[day]=S.log[day]||[];
-    L.forEach(x=>{const f=FOODS[x.i];S.log[day].push({n:f[0],k:Math.round(f[1]*x.g/100),g:x.g,m:addMeal,k100:f[1]})});goal("add_food");markDay();save();pick=null;q="";toast(`Записано: ${L.length} ${plural(L.length,"блюдо","блюда","блюд")}`);return go("diary")}
+    L.forEach(x=>{const f=FOODS[x.i];S.log[day].push({n:f[0],k:Math.round(f[1]*x.g/100),g:x.g,m:addMeal,k100:f[1]})});goal("add_food");markDay();pick=null;q="";if(save())toast(`Записано: ${L.length} ${plural(L.length,"блюдо","блюда","блюд")}`);return go("diary")}
   if(b.dataset.crave){goal("crave_tile");const id=b.dataset.crave;if(!cart[id])cart[id]=1;return go(order?"track":"cart")}
   if(b.dataset.cat){cat=b.dataset.cat;return render()}
   if(b.dataset.add){cart[b.dataset.add]=(cart[b.dataset.add]||0)+1;if(tab==="menu")toast("Добавлено. Аппетит растёт, вес нет.");return render()}
@@ -1011,10 +1124,11 @@ document.addEventListener("click",e=>{
   if(b.id==="addFood"){const f=FOODS[pick];const g=+$("#grams").value||0,k1=+$("#k100").value||0;if(g<=0)return toast("Укажите граммы");if(k1<=0)return toast("Укажите калории на 100 г");if(k1!==f[1]){S.kfix=S.kfix||{};S.kfix[f[0]]=k1;f[1]=k1}return addEntry(f[0],k1*g/100,g,k1)}
   if(b.id==="addScan"){const n=$("#fn").value.trim()||"Продукт",k1=+$("#k100").value||0,g=+$("#grams").value||0;if(k1<=0)return toast("Укажите калории на 100 г");if(g<=0)return toast("Укажите граммы");rememberFood(n,k1,g,scan&&scan.code);return addEntry(n,k1*g/100,g,k1)}
   if(b.dataset.edit){editIdx=+b.dataset.edit;return go("entry")}
-  if(b.id==="saveEntry"){const e=S.log[curDay()][editIdx];e.n=$("#fn").value.trim()||e.n;e.m=+$("#em").value;
+  if(b.id==="saveEntry"){const e=S.log[curDay()][editIdx];
     if(e.g){const k1=+$("#k100").value||0,g=+$("#grams").value||0;if(k1<=0||g<=0)return toast("Проверьте калории и граммы");e.k100=k1;e.g=g;e.k=Math.round(k1*g/100)}
     else{const k=+$("#ck").value||0;if(k<=0)return toast("Укажите калории");e.k=Math.round(k)}
-    save();toast("Сохранено");return go("diary")}
+    e.n=$("#fn").value.trim()||e.n;e.m=+$("#em").value;
+    if(save())toast("Сохранено");return go("diary")}
   if(b.id==="delEntry"){const day=curDay(),i=editIdx,[x]=S.log[day].splice(i,1);save();go("diary");undo=()=>{S.log[day].splice(i,0,x);save();render()};return toast(`Удалено: ${x.n}`,true)}
   if(b.id==="addCustom"){const n=$("#cn").value.trim()||"Своё блюдо";const k=+$("#ck").value||0;if(k<=0)return toast("Укажите калории");return addEntry(n,k,0)}
   if(b.id==="saveProfile"){
@@ -1035,13 +1149,12 @@ document.addEventListener("click",e=>{
   if(b.id==="helloGo"){S.hello=1;save();return go("setup")}
   if(b.id==="skipProfile"){S.profile={sex:"f",age:35,h:168,w:75,act:1,goal:0,norm:2000};save();return go("diary")}
   if(b.id==="streak"){const n=streak();return toast(`Вы ${n} ${plural(n,"день","дня","дней")} подряд ведёте дневник. Кто записывает еду каждый день, худеет заметно успешнее. Не прерывайте серию!`)}
-  if(b.id==="backup"){const blob=new Blob([JSON.stringify(S)],{type:"application/json"}),name=`mimo-rta-${dk()}.json`,file=new File([blob],name,{type:"application/json"});
-    if(navigator.canShare&&navigator.canShare({files:[file]}))return navigator.share({files:[file]}).catch(()=>{});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();return}
+  if(b.id==="backup"||b.id==="emergencyBackup")return downloadDiary(unreadableDiary?storedDiary:JSON.stringify(S));
+  if(b.id==="retrySave"){if(save())toast("Дневник сохранён");return}
   if(b.id==="cartBtn")return go("cart");
   if(b.id==="checkout")return startOrder();
   if(b.id==="skip"){order.start=Date.now()-TRIP_SEC*1000*.9;S.active=order;save();return render()}
-  if(b.id==="reset"){if(b.dataset.sure){S={profile:null,log:{},orders:[],days:[],active:null};order=null;save();return go("setup")}b.dataset.sure=1;b.textContent="Нажмите ещё раз, чтобы стереть всё";}
+  if(b.id==="reset"){if(b.dataset.sure){const next=emptyDiary();if(!save(next))return;S=next;order=null;undo=null;applyFoodHistory();return go("setup")}b.dataset.sure=1;b.textContent="Нажмите ещё раз, чтобы стереть всё";}
 });
 
 setInterval(()=>{
@@ -1051,6 +1164,7 @@ setInterval(()=>{
 },1000);
 
 if(order)tab="track";else if(!S.profile)tab=S.hello?"setup":"hello";
+showStorageMessage();
 render();
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
