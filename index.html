@@ -164,7 +164,8 @@ textarea.search{font:inherit;font-size:16px;resize:none;color:inherit}
 .quick button{padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;min-height:40px}
 .bigk{font-family:var(--display);font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:14px}
 .week{display:flex;flex-direction:column;gap:10px;margin-top:12px}
-.wd{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;font-size:13px;font-variant-numeric:tabular-nums}
+.wd{display:grid;grid-template-columns:28px minmax(0,1fr) 12ch;gap:10px;align-items:center;font-size:13px;font-variant-numeric:tabular-nums}
+.wd>span:last-child{text-align:right;overflow-wrap:anywhere}
 .bar{height:12px;border-radius:6px;background:var(--bg);border:1px solid var(--line);overflow:hidden;display:flex}
 .bar i{display:block;height:100%;background:var(--ink)}
 .bar i.m{background:var(--save)}
