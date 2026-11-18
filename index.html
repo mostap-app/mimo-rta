@@ -389,6 +389,7 @@ function parseDiary(raw,legacy=false){
     throw new Error("Некорректная копия");
   }
   const result={profile:p,log,orders:orders.map(o=>({...o,day:o.day||dk(new Date(o.d))})),days,active:a};
+  if(s.skippedProfile===true)result.skippedProfile=true;
   for(const [k,v] of Object.entries({lastReward,weights,water,cup,my,kfix,hello}))if(v!==undefined)result[k]=v;
   return result;
 }
@@ -442,7 +443,7 @@ async function restoreDiary(file){
   catch(e){if(revision===storageRevision)toast("Не удалось прочитать копию «Мимо рта». Дневник не изменён.");return}
   if(revision!==storageRevision){toast("Дневник уже изменился. Выберите файл копии ещё раз.");return}
   if(!save(next,true))return;
-  S=next;order=S.active;undo=null;viewDay=null;editIdx=null;
+  S=next;cart={};order=S.active;undo=null;viewDay=null;editIdx=null;
   applyFoodHistory();
   toast("Данные восстановлены");
   go(order?"track":"diary");
@@ -472,7 +473,7 @@ function mimoOn(day){return S.orders.filter(o=>o.day===day).reduce((a,o)=>a+o.k,
 function totals(){return S.orders.reduce((a,o)=>({k:a.k+o.k,p:a.p+o.p,n:a.n+1}),{k:0,p:0,n:0})}
 function cartInfo(){let q=0,p=0,k=0;for(const id in cart){const d=dish(id);q+=cart[id];p+=d.p*cart[id];k+=d.k*cart[id]}return{q,p,k}}
 function toast(t,canUndo){toast.at=Date.now();const el=$("#toast");el.textContent=t;if(canUndo){const u=document.createElement("button");u.id="undo";u.textContent="Вернуть";el.append(" ",u)}el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{el.hidden=true;if(canUndo)undo=null},canUndo?5000:Math.max(1800,t.length*55))}
-function go(t){if(Date.now()-(toast.at||0)>400)$("#toast").hidden=true;tab=t;window.scrollTo(0,0);render()}
+function go(t){if(tab==="say"&&t!=="say"&&rec){const microphone=rec;rec=null;microphone.kill()}if(Date.now()-(toast.at||0)>400)$("#toast").hidden=true;tab=t;window.scrollTo(0,0);render()}
 
 function render(){
   if(tab!=="add")$("#view").classList.remove("searching");
@@ -539,7 +540,7 @@ function foodRows(){
   const s=nz(q.trim());
   const my=new Set((S.my||[]).map(x=>x.n));
   const list=FOODS.map((f,i)=>({f,i})).filter(x=>!s||nz(x.f[0]).includes(s)).sort((a,b)=>my.has(b.f[0])-my.has(a.f[0])).slice(0,40);
-  return list.length?list.map(x=>`<button data-pick="${x.i}"><span>${x.f[0]}</span><span class="kcal">${fmt(x.f[1]*x.f[2]/100)} ккал / ${x.f[2]} г</span></button>`).join(""):`<p class="muted">Ничего не нашлось. Добавьте своё блюдо ниже.</p>`;
+  return list.length?list.map(x=>`<button data-pick="${x.i}"><span>${esc(x.f[0])}</span><span class="kcal">${fmt(x.f[1]*x.f[2]/100)} ккал / ${x.f[2]} г</span></button>`).join(""):`<p class="muted">Ничего не нашлось. Добавьте своё блюдо ниже.</p>`;
 }
 function renderAdd(){
   $("#view").classList.toggle("searching",pick===null&&!!q.trim());
@@ -559,7 +560,7 @@ function renderAdd(){
     $("#view").innerHTML=`
      <button class="back" data-back="1">← Назад</button>
      <h1>Своё блюдо</h1>
-     <div class="field"><label for="cn">Название</label><input id="cn" placeholder="Например, бабушкин пирог"></div>
+     <div class="field"><label for="cn">Название</label><input id="cn" value="${esc(q.trim())}" placeholder="Например, бабушкин пирог"></div>
      <div class="field"><label for="ck">Калории, ккал</label><input id="ck" type="number" inputmode="numeric" min="1" placeholder="350"></div>
      <div class="field"><label for="ml">Приём пищи</label><select id="ml">${MEALS.map((m,i)=>`<option value="${i}" ${addMeal===i?"selected":""}>${m}</option>`).join("")}</select></div>
      <button class="cta" id="addCustom">Добавить в дневник</button>`;
@@ -568,7 +569,7 @@ function renderAdd(){
   const f=FOODS[pick];
   $("#view").innerHTML=`
    <button class="back" data-back="1">← Назад</button>
-   <h1>${f[0]}</h1>
+   <h1>${esc(f[0])}</h1>
    <div class="two"><div class="field"><label for="k100">Ккал на 100 г</label><input id="k100" type="number" inputmode="decimal" min="0" value="${f[1]}"></div><div class="field"><label for="grams">Сколько грамм</label><input id="grams" type="number" inputmode="numeric" min="1" value="${f[2]}"></div></div>
    <div class="quick">${[0.5,1,1.5,2].map(m=>`<button data-g="${Math.round(f[2]*m)}">${Math.round(f[2]*m)} г</button>`).join("")}</div>
    <p class="note">На упаковке другая калорийность? Поправьте цифру, приложение её запомнит.</p>
@@ -647,7 +648,7 @@ function renderWeight(){const L=(S.weights||[]).slice(-5).reverse();
    <button class="ghost" data-go="goal">Изменить желаемый вес</button>
    ${L.length?`<div class="sheet"><h2 style="font-size:15px;margin:0">Последние записи</h2>${L.map(x=>`<div class="tot wrow"><span class="muted">${fdate(new Date(x.d+"T12:00:00"))}</span><span class="wv">${fmt1(x.w)} кг<button class="del" data-delw="${x.d}" aria-label="Удалить запись">${IC.X}</button></span></div>`).join("")}</div>`:""}`;
 }
-function weightChart(){const L=S.weights||[];if(L.length<2)return S.profile?`<div class="sheet"><h2>Вес</h2><p class="note">Запишите вес ещё раз через неделю, и здесь появится график.</p><button class="ghost" data-go="weight">Записать вес</button></div>`:"";
+function weightChart(){const L=S.weights||[];if(L.length<2)return (S.profile||S.skippedProfile||L.length)?`<div class="sheet"><h2>Вес</h2><p class="note">${L.length?"Запишите вес ещё раз через неделю, и здесь появится график.":"Добавьте первое взвешивание, чтобы отслеживать вес."}</p><button class="ghost" data-go="weight">Записать вес</button></div>`:"";
   const W=300,H=130,ws=L.map(x=>x.w),tw=S.profile&&S.profile.goal!==1?S.profile.tw:null,mn=Math.min(...ws,tw||Infinity)-0.5,mx=Math.max(...ws,tw||-Infinity)+0.5;
   const t0=new Date(L[0].d).getTime(),t1=new Date(L[L.length-1].d).getTime()||t0+1,X=d=>16+(new Date(d).getTime()-t0)/((t1-t0)||1)*(W-32),Y=v=>H-18-(v-mn)/(mx-mn)*(H-36);
   const pts=L.map(x=>`${X(x.d).toFixed(1)},${Y(x.w).toFixed(1)}`).join(" ");
@@ -685,10 +686,8 @@ async function loadModel(){
   if(ortSess)return ortSess;
   if(!window.ort)throw new Error("движок распознавания не загрузился");
   ort.env.wasm.wasmPaths=new URL("./",location.href).href;ort.env.wasm.numThreads=1;
-  setPhotoStatus("Смотрю на фото…");
   const parts=await Promise.all(["model.part1.wasm","model.part2.wasm"].map(u=>fetch(u).then(r=>{if(!r.ok)throw new Error("файл модели "+r.status);return r.arrayBuffer()})));
   const buf=new Uint8Array(parts[0].byteLength+parts[1].byteLength);buf.set(new Uint8Array(parts[0]),0);buf.set(new Uint8Array(parts[1]),parts[0].byteLength);
-  setPhotoStatus("Смотрю на фото…");
   ortSess=await ort.InferenceSession.create(buf,{executionProviders:["wasm"]});
   return ortSess;
 }
@@ -780,7 +779,7 @@ function sayMic(){
       ui(false,byUser?"Нажмите и говорите":"Ничего не услышал. Нажмите и скажите ещё раз")};
     r.kill=()=>{done=true;clearTimeout(timer);try{r.abort()}catch(e){}};
     r.onresult=e=>{let t="";for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript+" ";heard=t;const el=$("#sayT");if(el){el.value=(base?base+", ":"")+t.trim();sayText=el.value}arm(2500)};
-    r.onerror=e=>{if(e.error==="not-allowed"||e.error==="service-not-allowed"){done=true;clearTimeout(timer);if(rec===r)rec=null;ui(false,"Нажмите и говорите");const el=$("#sayT");if(el)el.focus();return toast("Нет доступа к микрофону. Можно диктовать через микрофон на клавиатуре")}r.finish(false)};
+    r.onerror=e=>{if(done)return;if(e.error==="not-allowed"||e.error==="service-not-allowed"){done=true;clearTimeout(timer);if(rec===r)rec=null;ui(false,"Нажмите и говорите");const el=$("#sayT");if(el)el.focus();return toast("Нет доступа к микрофону. Можно диктовать через микрофон на клавиатуре")}r.finish(false)};
     r.onend=()=>r.finish(false);
     r.start();ui(true,"Слушаю… Говорите");arm(7000);
     setTimeout(()=>r.finish(false),25000);
@@ -810,13 +809,14 @@ async function startPhoto(file){
   if(tab!=="add"){const hr=new Date().getHours();addMeal=hr<11?0:hr<16?1:hr<21?2:3}
   if(photo&&photo.url)URL.revokeObjectURL(photo.url);
   photo={url:URL.createObjectURL(file),status:"Смотрю на фото…",result:null,err:null,sel:[],q:""};pick=null;go("photo");
+  const job=photo;
   try{
-    await loadModel();setPhotoStatus("Распознаю…");
+    await loadModel();if(photo!==job)return;setPhotoStatus("Распознаю…");
     const img=new Image();img.src=photo.url;await img.decode();
-    const t0=performance.now();const r=await recognize(img,setPhotoStatus);photo.ms=Math.round(performance.now()-t0);
+    const t0=performance.now();const r=await recognize(img,t=>{if(photo===job)setPhotoStatus(t)});if(photo!==job)return;photo.ms=Math.round(performance.now()-t0);
     photo.sel=r.top.map((x,k)=>({i:x.i,g:FOODS[x.i][2],on:!r.notFood&&(k===0||(k<3&&x.p>=45))}));
     photo.result=r;photo.status="";
-  }catch(e){photo.err=e.message||String(e);photo.status=""}
+  }catch(e){if(photo!==job)return;photo.err=e.message||String(e);photo.status=""}
   if(tab==="photo")renderPhoto();
 }
 function renderPhoto(){
@@ -920,26 +920,27 @@ async function startScan(file){
   if(tab!=="add"){const hr=new Date().getHours();addMeal=hr<11?0:hr<16?1:hr<21?2:3}
   if(scan&&scan.url)URL.revokeObjectURL(scan.url);
   scan={url:URL.createObjectURL(file),status:"Ищу штрихкод…",n:"",k100:"",g:100,src:"",code:""};pick=null;go("scan");
-  const st=t=>{scan.status=t;if(tab==="scan")renderScan()};
+  const job=scan;
+  const st=t=>{job.status=t;if(scan===job&&tab==="scan")renderScan()};
   try{
-    const img=new Image();img.src=scan.url;await img.decode();
+    const img=new Image();img.src=job.url;await img.decode();
     await loadScript("scan/zxing.min.js").catch(()=>{});
     const code=readBarcode(toCanvas(img,1600))||readBarcode(toCanvas(img,900));
     if(code){
-      scan.code=code;
+      job.code=code;
       const mine=(S.my||[]).find(x=>x.code===code);
-      if(mine){Object.assign(scan,{n:mine.n,k100:mine.k100,g:mine.g||100,gOk:!!mine.g,src:"Этот продукт вы уже добавляли, данные подставлены."});return st("")}
+      if(mine){Object.assign(job,{n:mine.n,k100:mine.k100,g:mine.g||100,gOk:!!mine.g,src:"Этот продукт вы уже добавляли, данные подставлены."});return st("")}
       st("Ищу продукт…");
       const p=await offLookup(code).catch(()=>null);
-      if(p&&p.k100){Object.assign(scan,p,{gOk:!!p.g,src:"Нашли по штрихкоду в базе продуктов. Проверьте граммы."});return st("")}
-      if(p&&p.n){scan.n=p.n;scan.g=p.g||100;scan.gOk=!!p.g}
+      if(p&&p.k100){Object.assign(job,p,{gOk:!!p.g,src:"Нашли по штрихкоду в базе продуктов. Проверьте граммы."});return st("")}
+      if(p&&p.n){job.n=p.n;job.g=p.g||100;job.gOk=!!p.g}
     }
     st("Читаю этикетку…");
     const r=await readLabel(img,st);
-    if(r.k100){scan.k100=r.k100;scan.src="Прочитали калорийность с этикетки. Сверьте цифру с упаковкой."}
-    else scan.src="Не смог прочитать калорийность. Впишите её с упаковки, и в следующий раз этот продукт найдётся сам.";
-    if(r.g&&!scan.gOk){scan.g=r.g;scan.gOk=true}if(r.n&&!scan.n)scan.n=r.n;
-  }catch(e){scan.src="Не получилось прочитать упаковку. Впишите данные с неё вручную."}
+    if(r.k100){job.k100=r.k100;job.src="Прочитали калорийность с этикетки. Сверьте цифру с упаковкой."}
+    else job.src="Не смог прочитать калорийность. Впишите её с упаковки, и в следующий раз этот продукт найдётся сам.";
+    if(r.g&&!job.gOk){job.g=r.g;job.gOk=true}if(r.n&&!job.n)job.n=r.n;
+  }catch(e){job.src="Не получилось прочитать упаковку. Впишите данные с неё вручную."}
   st("");
 }
 function renderScan(){
@@ -1041,6 +1042,8 @@ function renderCart(){
 }
 
 function startOrder(){
+  if(order)return go("track");
+  if(!cartInfo().q)return go("menu");
   goal("mimo_order");
   if(!S.orders.length)trackPilotGoal("first_order_start");
   const ci=cartInfo();
@@ -1103,7 +1106,7 @@ function finishOrder(){
 
 function renderReward(){
   const r=S.lastReward;if(!r){tab="me";return render()}
-  const walk=Math.round(r.k/5), run=Math.round(r.k/11), fat=Math.round(r.k/7.7);
+  const walk=Math.round(r.k/5), run=Math.round(r.k/11);
   const N=norm(), pct=Math.round(r.k/N*100);
   $("#view").innerHTML=`<div class="reward">
    <div class="badge">${LOGO}</div>
@@ -1118,7 +1121,6 @@ function renderReward(){
      <div class="tot"><span class="muted">вашей дневной нормы</span><span>${pct}%</span></div>
      <div class="tot"><span class="muted">ходьбы, чтобы сжечь</span><span>${fmt(walk)} мин</span></div>
      <div class="tot"><span class="muted">или бега</span><span>${fmt(run)} мин</span></div>
-     <div class="tot"><span class="muted">или жира, который не отложился</span><span>${fmt(fat)} г</span></div>
    </div>
    <button class="cta" data-go="diary">В дневник</button>
    <button class="ghost" data-share="reward">Поделиться с другом</button>
@@ -1168,7 +1170,7 @@ function renderMe(){
      <div class="kpi"><div class="l">Мимо рта</div><div class="v">${fmt(t.k)} ккал</div></div>
      <div class="kpi"><div class="l">Сэкономлено</div><div class="v">${fmt(t.p)} ₽</div></div>
      <div class="kpi"><div class="l">Заказов</div><div class="v">${t.n}</div></div>
-     <div class="kpi"><div class="l">≈ жира</div><div class="v">${fmt(t.k/7.7)} г</div></div>
+     <div class="kpi"><div class="l">Ккал на заказ</div><div class="v">${t.n?fmt(t.k/t.n):"—"}</div></div>
    </div>
    ${renderWeek(N)}
    ${weightChart()}
@@ -1211,9 +1213,9 @@ document.addEventListener("click",e=>{
   if(b.dataset.padd){photo.sel.push({i:+b.dataset.padd,g:FOODS[+b.dataset.padd][2],on:true});photo.q="";$("#pq").value="";$("#pres").innerHTML="";$("#prows").innerHTML=photoRows();return photoCta()}
   if(b.id==="addPhoto"){const L=photo.sel.filter(x=>x.on&&x.g>0);if(!L.length)return toast("Отметьте хотя бы одно блюдо");addMeal=+$("#ml").value;const day=curDay();S.log[day]=S.log[day]||[];
     L.forEach(x=>{const f=FOODS[x.i];S.log[day].push({n:f[0],k:Math.round(f[1]*x.g/100),g:x.g,m:addMeal,k100:f[1]})});goal("add_food");markDay();pick=null;q="";if(save())toast(`Записано: ${L.length} ${plural(L.length,"блюдо","блюда","блюд")}`);return go("diary")}
-  if(b.dataset.crave){goal("crave_tile");const id=b.dataset.crave;if(!cart[id])cart[id]=1;return go(order?"track":"cart")}
+  if(b.dataset.crave){goal("crave_tile");const id=b.dataset.crave;if(order)return go("track");if(!cart[id])cart[id]=1;return go("cart")}
   if(b.dataset.cat){cat=b.dataset.cat;return render()}
-  if(b.dataset.add){cart[b.dataset.add]=(cart[b.dataset.add]||0)+1;if(tab==="menu")toast("Добавлено. Аппетит растёт, вес нет.");return render()}
+  if(b.dataset.add){cart[b.dataset.add]=(cart[b.dataset.add]||0)+1;if(tab==="menu")toast("Добавлено в заказ");return render()}
   if(b.dataset.dec){if(--cart[b.dataset.dec]<=0)delete cart[b.dataset.dec];return render()}
   if(b.dataset.tab){return go(b.dataset.tab==="menu"&&order?"track":b.dataset.tab)}
   if(b.dataset.go){return go(b.dataset.go==="menu"&&order?"track":b.dataset.go)}
@@ -1254,13 +1256,13 @@ document.addEventListener("click",e=>{
     p.norm=Math.round(nn);p.goal=g;p.tw=tw;p.w=cw;save();goal("goal_set");return go(g!==1?"plan":"diary");
   }
   if(b.id==="helloGo"){S.hello=1;save();return go("setup")}
-  if(b.id==="skipProfile"){S.profile={sex:"f",age:35,h:168,w:75,act:1,goal:0,norm:2000};save();return go("diary")}
+  if(b.id==="skipProfile"){S.skippedProfile=true;save();return go("diary")}
   if(b.id==="streak"){const n=streak();return toast(`Вы ${n} ${plural(n,"день","дня","дней")} подряд ведёте дневник. Кто записывает еду каждый день, худеет заметно успешнее. Не прерывайте серию!`)}
   if(b.id==="backup"||b.id==="emergencyBackup")return downloadDiary(unreadableDiary?storedDiary:JSON.stringify(S));
   if(b.id==="retrySave"){if(save())toast("Дневник сохранён");return}
   if(b.id==="cartBtn")return go("cart");
   if(b.id==="checkout")return startOrder();
-  if(b.id==="reset"){if(b.dataset.sure){const next=emptyDiary();if(!save(next))return;S=next;order=null;undo=null;applyFoodHistory();return go("setup")}b.dataset.sure=1;b.textContent="Нажмите ещё раз, чтобы стереть всё";}
+  if(b.id==="reset"){if(b.dataset.sure){const next=emptyDiary();if(!save(next))return;S=next;cart={};viewDay=null;order=null;undo=null;applyFoodHistory();return go("setup")}b.dataset.sure=1;b.textContent="Нажмите ещё раз, чтобы стереть всё";}
 });
 
 setInterval(()=>{
@@ -1269,7 +1271,7 @@ setInterval(()=>{
   if(tab==="track")renderTrack();
 },1000);
 
-if(order)tab="track";else if(!S.profile)tab=S.hello?"setup":"hello";
+if(order)tab="track";else if(!S.profile&&!S.skippedProfile)tab=S.hello?"setup":"hello";
 showStorageMessage();
 render();
 trackPilotVisit();
