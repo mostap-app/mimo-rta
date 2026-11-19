@@ -128,7 +128,7 @@ button.t{text-align:left;padding:0;background:none;border:0;cursor:pointer}butto
 .diary-crave summary{display:list-item;width:fit-content;min-height:44px;padding-block:10px;cursor:pointer;font-weight:600}
 .crave-total{display:block;margin-top:8px;color:var(--save-text);font-weight:600}
 .menu-intro{color:var(--ink);font-weight:600}
-.week-link{display:block;width:100%;min-height:44px;text-align:left;color:var(--ink);border-radius:6px}
+.week-link{position:relative;display:grid;align-items:center;width:100%;min-height:44px;padding:0;text-align:left;color:var(--ink);border-radius:6px}
 .week-link b{text-decoration:underline;text-underline-offset:3px}
 .week-link:focus-visible{outline:2px solid var(--accent-text);outline-offset:2px}
 .order-totals .saved-strip{grid-template-columns:repeat(auto-fit,minmax(min(145px,100%),1fr));margin-top:10px}
@@ -182,16 +182,15 @@ textarea.search{font:inherit;font-size:16px;resize:none;color:inherit}
 .quick{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .quick button{padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;min-height:40px}
 .bigk{font-family:var(--display);font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:14px}
-.week{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0 4px;margin-top:8px;font-size:13px;font-variant-numeric:tabular-nums}
-.week th,.week td{padding:7px 6px;text-align:left;vertical-align:middle}
-.week thead th{padding-block:4px;font-size:12px;font-weight:600;color:var(--muted)}
-.week thead th:first-child{width:27%}
-.week thead th:last-child{width:28%}
+.week{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;margin-top:8px;font-size:13px;font-variant-numeric:tabular-nums}
+.week th,.week td{padding:2px 6px;text-align:left;vertical-align:middle}
+.week thead th{padding-block:8px;font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap}
+.week thead th:first-child{width:29%}
+.week thead th:last-child{width:27%}
 .week td:last-child,.week thead th:last-child{text-align:right}
 .week tbody{line-height:1.25}
-.week tbody tr{height:3.6em}
-.week tbody .week-row-empty{height:auto}
-.week-row-empty th,.week-row-empty td{padding-block:4px}
+.week tbody tr{height:50px}
+.week tbody tr:not(:last-child)>*{border-bottom:1px solid var(--line)}
 .week th[scope=row]{font-weight:500;white-space:nowrap}
 .week time{display:block;color:var(--muted);font-size:12px}
 .week .week-today>*{background:var(--bg)}
@@ -201,7 +200,7 @@ textarea.search{font:inherit;font-size:16px;resize:none;color:inherit}
 .week-over{color:var(--accent-text);font-weight:700}
 .week-saved{color:var(--save-text);font-weight:700;overflow-wrap:anywhere;text-align:right}
 .week-empty{color:var(--muted);font-size:12px;font-weight:400}
-.week-track{position:relative;display:flex;height:9px;margin-top:4px;border-radius:6px;background:var(--line);overflow:hidden}
+.week-track{position:absolute;inset:auto 0 4px;display:flex;height:5px;border-radius:6px;background:var(--line);overflow:hidden}
 .week-track i{height:100%;background:var(--ink)}
 .week-track .week-over{background:var(--accent)}
 .week-track::after{content:"";position:absolute;inset:0 auto 0 var(--week-limit);border-left:2px dashed var(--muted);box-shadow:1px 0 var(--surface)}
@@ -556,7 +555,7 @@ function renderDiary(){
   const mimoList=S.orders.filter(o=>o.day===day);
   $("#view").innerHTML=`
    <div class="daynav"><button data-day="-1" aria-label="Предыдущий день">${IC.L}</button><h1>${dayTitle(day)}</h1><button data-day="1" aria-label="Следующий день" ${isToday?"disabled":""}>${IC.R}</button></div>
-   ${order?`<button class="ghost" data-go="track">Вернуться к доставке</button>`:S.lastReward&&S.orders[0]?.day===day&&S.lastReward.d===S.orders[0].d?`<button class="ghost" data-go="reward">Посмотреть итог заказа</button>`:""}
+   ${order?`<button class="ghost" data-go="track">Вернуться к доставке</button>`:""}
    <section class="sheet day-summary${left<0?" over":""}" aria-labelledby="day-summary-title">
      <h2 id="day-summary-title">Съедено</h2>
      <p class="day-summary-total"><strong>${fmt(eaten)}</strong> <span>из ${fmt(N)} ккал</span></p>
@@ -1306,13 +1305,12 @@ function renderWeek(N){
   return `<section class="sheet" aria-labelledby="week-title">
      <h2 id="week-title">Последние 7 дней</h2>
      <p class="note week-note">Дни с записями о еде · <b>${loggedDays} из 7</b></p>
-     <table class="week" aria-labelledby="week-title" style="--week-limit:${percent(N)}">
-       <thead><tr><th scope="col">День</th><th scope="col">Съедено, ккал</th><th scope="col">Мимо рта, ккал</th></tr></thead>
+     <table class="week" aria-labelledby="week-title" aria-describedby="week-units" style="--week-limit:${percent(N)}">
+       <thead><tr><th scope="col">День</th><th scope="col">Съедено</th><th scope="col">Мимо рта</th></tr></thead>
        <tbody>${days.map((day,index)=>{
          const within=Math.min(day.eaten,N);
          const excess=day.eaten-within;
-         const empty=!day.logged&&!day.saved;
-         return `<tr class="${index===0?"week-today":""} ${empty?"week-row-empty":""}">
+         return `<tr${index===0?' class="week-today"':""}>
            <th scope="row">${index===0?"<strong>Сегодня</strong>":""}<time datetime="${day.key}">${day.label}</time></th>
            <td>${day.logged?`<button class="week-link" data-open-day="${day.key}" aria-label="Открыть дневник за ${day.label}, съедено ${fmt(day.eaten)} ккал"><span class="week-amount"><b>${fmt(day.eaten)}</b>${excess?`<span class="week-over" aria-label="${fmt(excess)} ккал сверх нормы">+${fmt(excess)}</span>`:""}</span>
              <span class="week-track" aria-hidden="true"><i style="width:${percent(within)}"></i>${excess?`<i class="week-over" style="width:${percent(excess)}"></i>`:""}</span></button>`:'<span class="week-empty">Нет записей</span>'}</td>
@@ -1321,7 +1319,7 @@ function renderWeek(N){
        }).join("")}</tbody>
      </table>
      <div class="week-key"><span class="week-reference">Норма ${fmt(N)} ккал</span><span class="week-excess">Сверх нормы</span></div>
-     <p class="note week-note">«Мимо рта» — калории виртуальных заказов.</p>
+     <p class="note week-note" id="week-units">Все значения в ккал. «Мимо рта» — виртуальные заказы.</p>
    </section>`;
 }
 
