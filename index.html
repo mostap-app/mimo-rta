@@ -553,13 +553,27 @@ function renderDiary(){
        <div><span>Съедено</span><span>${fmt(eaten)}</span></div>
      </div>
    </div>
-   <button class="ghost diary-search" id="diarySearch">
-     <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/></svg>
-     Найти или добавить еду
-   </button>
+   <section class="sheet" aria-labelledby="diary-add-title">
+     <h2 id="diary-add-title">Записать, что съели</h2>
+     <button class="ghost diary-search" id="diarySearch">
+       <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/></svg>
+       Найти блюдо
+     </button>
+     <div class="two snap three">
+       <label class="photo-btn">
+         <input type="file" accept="image/*" id="photoIn" style="position:absolute;width:1px;height:1px;opacity:0">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+         Фото блюда
+       </label>
+       <label class="photo-btn">
+         <input type="file" accept="image/*" id="scanIn" style="position:absolute;width:1px;height:1px;opacity:0">
+         ${ICON_BC}Скан упаковки
+       </label>
+       <button class="photo-btn" data-go="say">${ICON_MIC}Сказать</button>
+     </div>
+   </section>
    ${craveBlock(left,mimo)}
    ${S.profile?"":`<button class="addline" data-go="setup">Рассчитать мою норму калорий →</button>`}
-   <div class="two snap three"><label class="photo-btn"><input type="file" accept="image/*" id="photoIn" style="position:absolute;width:1px;height:1px;opacity:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото блюда</label><label class="photo-btn"><input type="file" accept="image/*" id="scanIn" style="position:absolute;width:1px;height:1px;opacity:0">${ICON_BC}Скан упаковки</label><button class="photo-btn" data-go="say">${ICON_MIC}Сказать</button></div>
    ${MEALS.map((m,mi)=>{const items=log.map((x,i)=>({...x,i})).filter(x=>x.m===mi);const sum=items.reduce((a,x)=>a+x.k,0);return`
    <div class="sheet meal"><h2>${m}<small>${sum?fmt(sum)+" ккал":""}</small></h2>
      ${items.map(x=>`<div class="line"><button class="t" data-edit="${x.i}"><b>${esc(x.n)}</b><div class="kcal">${x.g?fmt(x.g)+" г · ":""}${fmt(x.k)} ккал</div></button><button class="del" data-del="${x.i}" aria-label="Удалить ${esc(x.n)}">${IC.X}</button></div>`).join("")}
