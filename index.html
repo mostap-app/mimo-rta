@@ -50,11 +50,15 @@ h2{font-size:17px;font-weight:700}
 .dish .pic img{width:100%;height:100%;object-fit:cover;display:block}
 .dish .meta{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
 .dish .name{font-weight:600;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em}body.hascart #view{padding-bottom:84px}
-.dish .row{display:flex;justify-content:space-between;align-items:center;margin-top:auto;gap:6px}
 .price{font-weight:700;font-variant-numeric:tabular-nums}
 .kcal{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-.add{width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:20px;line-height:1;display:grid;place-items:center;font-weight:700}
-.qty{position:relative;width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:20px;line-height:1;display:grid;place-items:center;font-weight:700}.qty i{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--surface);color:var(--accent-text);border:1.5px solid var(--accent);font-style:normal;font-size:11px;line-height:17px;text-align:center}
+.dish-actions{display:flex;justify-content:flex-end;margin-top:auto}
+.dish .facts{display:flex;align-items:baseline;justify-content:space-between;gap:4px;flex-wrap:wrap}
+.dish-actions .dish-step{gap:0;min-height:48px}
+.dish-actions .dish-step button{flex:none;width:48px;height:48px}
+@media(max-width:374px){.dish .meta{padding-inline:8px}}
+.dish-step b{min-width:2ch;text-align:center;overflow-wrap:anywhere}
+.dish-step .add{background:var(--accent);color:var(--accent-ink);margin-left:auto}
 .cartbar{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:6;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .cartbar button{max-width:448px;margin:0 auto;width:100%;display:flex;justify-content:space-between;align-items:center;background:var(--accent);color:#fff;border-radius:18px;padding:14px 18px;font-weight:700;box-shadow:0 10px 30px -10px rgba(244,81,30,.65)}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -114,7 +118,18 @@ button.t{text-align:left;padding:0;background:none;border:0;cursor:pointer}butto
 .tile{flex:0 0 140px;display:flex;flex-direction:column;text-align:left;background:var(--surface);border-radius:16px;padding:0 0 10px;overflow:hidden;scroll-snap-align:start;border:1px solid var(--line)}
 .tile .ph{width:100%;aspect-ratio:400/328;background:#fdf5e8;display:grid;place-items:center;font-size:40px;overflow:hidden}.tile .ph img{width:100%;height:100%;object-fit:contain;display:block}
 .tile b{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:13px;line-height:1.3;padding:8px 10px 0;height:calc(3.9em + 8px);margin-bottom:6px}.tile span{display:block;font-size:12px;line-height:1.4;font-weight:700;color:var(--save-text);padding:0 10px;white-space:nowrap}
-.crave2 .cta{margin-top:12px}
+.crave2 .cta{margin-top:10px}
+.diary-search{margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--surface);color:var(--accent-text)}
+.diary-crave .crave-details{margin-top:8px}
+.diary-crave summary{display:list-item;width:fit-content;min-height:44px;padding-block:10px;cursor:pointer;font-weight:600}
+.crave-total{display:block;margin-top:8px;color:var(--save-text);font-weight:600}
+.menu-intro{color:var(--ink);font-weight:600}
+.week-link{display:block;width:100%;min-height:44px;text-align:left;color:var(--ink);border-radius:6px}
+.week-link b{text-decoration:underline;text-underline-offset:3px}
+.week-link:focus-visible{outline:2px solid var(--accent-text);outline-offset:2px}
+.order-totals .saved-strip{grid-template-columns:repeat(auto-fit,minmax(min(145px,100%),1fr));margin-top:10px}
+.order-totals .kpi .l{text-transform:none;letter-spacing:0}
+
 .prow{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);padding:8px 0}.prow:last-child{border-bottom:0}
 .chk{flex:1;min-width:0;display:flex;align-items:center;gap:12px;text-align:left;min-height:48px}.chk>span{min-width:0}.chk b{display:block;font-weight:600}
 .chk i{flex:none;width:26px;height:26px;border-radius:8px;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center}
@@ -180,7 +195,7 @@ textarea.search{font:inherit;font-size:16px;resize:none;color:inherit}
 .week-today td:last-child{border-radius:0 10px 10px 0}
 .week-amount{display:flex;justify-content:space-between;gap:2px 4px;flex-wrap:wrap;overflow-wrap:anywhere}
 .week-over{color:var(--accent-text);font-weight:700}
-.week-saved{color:var(--save-text);font-weight:700;overflow-wrap:anywhere}
+.week-saved{color:var(--save-text);font-weight:700;overflow-wrap:anywhere;text-align:right}
 .week-empty{color:var(--muted);font-size:12px;font-weight:400}
 .week-track{position:relative;display:flex;height:9px;margin-top:4px;border-radius:6px;background:var(--line);overflow:hidden}
 .week-track i{height:100%;background:var(--ink)}
@@ -357,7 +372,11 @@ function trackPilotVisit(){
     trackPilotGoal("app_first_open",true);
   }
 }
-let cat="Всё", cart={}, tab="diary", order=S.active||null, addMeal=0, pick=null, q="";
+let cat="Всё", cart={}, tab="diary", order=S.active||null, addMeal=0, pick=null, q="", wholeDaySearch=false;
+function suggestedMeal(){
+  const hour=new Date().getHours();
+  return hour<11?0:hour<16?1:hour<21?2:3;
+}
 
 function emptyDiary(){return {profile:null,log:{},orders:[],days:[],active:null}}
 
@@ -484,24 +503,27 @@ function render(){
   const ci=cartInfo();
   $("#cartbar").hidden=!(tab==="menu"&&ci.q>0);document.body.classList.toggle("hascart",!$("#cartbar").hidden);
   $("#cartCount").textContent=`${ci.q} ${plural(ci.q,"блюдо","блюда","блюд")} · в корзину`;
-  $("#cartSum").textContent=fmt(ci.p)+" ₽";
+  $("#cartSum").textContent=fmt(ci.p)+" ₽ по меню";
   ({diary:renderDiary,add:renderAdd,photo:renderPhoto,say:renderSay,plan:renderPlan,weight:renderWeight,goal:renderGoal,hello:renderHello,scan:renderScan,entry:renderEntry,setup:renderSetup,menu:renderMenu,cart:renderCart,track:renderTrack,reward:renderReward,me:renderMe})[tab]();
 }
 
 /* ---------- Дневник ---------- */
-function craveBlock(left){
+function craveBlock(left,mimo){
   const h=new Date().getHours();
   const order=h<11?[9,8,11,1]:h<17?[1,5,3,6]:[3,1,6,10];
   const ids=[...order,...DISHES.map(d=>d.id).filter(i=>!order.includes(i))];
   const title=left<0?"Норма уже позади. Но хочется?":left<400?"Почти всё съедено. Тянет ещё?":h>=20?"Вечером тянет на вредное?":"Тянет на вредное?";
   const fresh=!S.orders.length;
-  return `<div class="sheet crave2 ${fresh?"hero":""}">
+  return `<section class="sheet crave2 diary-crave ${fresh?"hero":""}">
     ${fresh?`<span class="badge-new">✨ Фишка приложения</span>`:""}
     <h2>${title}</h2>
-    <p class="note">${fresh?"Хочется бургер или пиццу? Закажите здесь понарошку: всё как в доставке, только курьер не приедет. Калории и деньги останутся при вас.":"Закажите понарошку: курьер не приедет, а калории и деньги останутся при вас."}</p>
-    <div class="rail">${ids.map(dish).map(d=>`<button class="tile" data-crave="${d.id}"><div class="ph">${pic(d)}</div><b>${d.n}</b><span>−${fmt(d.k)} ккал</span><span>+${fmt(d.p)} ₽ сэкономлено</span></button>`).join("")}</div>
-    <button class="cta" data-go="menu">Всё меню «мимо рта» →</button>
-  </div>`;
+    <p class="note">Виртуальный заказ любимой еды без оплаты и доставки.</p>
+    ${mimo?`<span class="crave-total">В виртуальных заказах за день · ${fmt(mimo)} ккал</span>`:""}
+    <button class="cta" data-go="menu">Открыть меню «Мимо рта»</button>
+    <details class="crave-details"><summary>Быстрый выбор блюда</summary>
+      <div class="rail">${ids.map(dish).map(d=>`<button class="tile" data-crave="${d.id}"><div class="ph">${pic(d)}</div><b>${d.n}</b><span>${fmt(d.k)} ккал</span><span>${fmt(d.p)} ₽ по меню</span></button>`).join("")}</div>
+    </details>
+  </section>`;
 }
 function renderDiary(){
   const day=curDay(), log=S.log[day]||[], N=norm(), eaten=eatenOn(day), mimo=mimoOn(day);
@@ -519,18 +541,21 @@ function renderDiary(){
      <div class="stat">
        <div><span>Норма</span><span>${fmt(N)}</span></div>
        <div><span>Съедено</span><span>${fmt(eaten)}</span></div>
-       <div><span>Мимо рта</span><span class="mimo">${fmt(mimo)}</span></div>
      </div>
    </div>
-   ${day===dk()?goalCard():""}
+   <button class="ghost diary-search" id="diarySearch">
+     <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/></svg>
+     Найти или добавить еду
+   </button>
+   ${craveBlock(left,mimo)}
    <div class="two snap three"><label class="photo-btn"><input type="file" accept="image/*" id="photoIn" style="position:absolute;width:1px;height:1px;opacity:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото блюда</label><label class="photo-btn"><input type="file" accept="image/*" id="scanIn" style="position:absolute;width:1px;height:1px;opacity:0">${ICON_BC}Скан упаковки</label><button class="photo-btn" data-go="say">${ICON_MIC}Сказать</button></div>
-   ${craveBlock(left)}
-   ${waterCard(day)}
    ${MEALS.map((m,mi)=>{const items=log.map((x,i)=>({...x,i})).filter(x=>x.m===mi);const sum=items.reduce((a,x)=>a+x.k,0);return`
    <div class="sheet meal"><h2>${m}<small>${sum?fmt(sum)+" ккал":""}</small></h2>
      ${items.map(x=>`<div class="line"><button class="t" data-edit="${x.i}"><b>${esc(x.n)}</b><div class="kcal">${x.g?fmt(x.g)+" г · ":""}${fmt(x.k)} ккал</div></button><button class="del" data-del="${x.i}" aria-label="Удалить ${esc(x.n)}">${IC.X}</button></div>`).join("")}
      <button class="addline" data-addmeal="${mi}">+ Добавить</button>
    </div>`}).join("")}
+   ${day===dk()?goalCard():""}
+   ${waterCard(day)}
    ${mimoList.length?`<div class="sheet"><h2>Пронесли мимо рта</h2>${mimoList.map(o=>`<div class="line mimo-row"><div class="e" aria-hidden="true">${o.ids?.length&&dish(o.ids[0])?pic(dish(o.ids[0])):""}</div><div class="t"><b>−${fmt(o.k)} ккал</b><div class="kcal">${new Date(o.d).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})} · ${fmt(o.p)} ₽ сэкономлено</div></div><button class="del" data-delm="${o.d}" aria-label="Удалить заказ">${IC.X}</button></div>`).join("")}</div>`:""}`;
 }
 
@@ -547,12 +572,12 @@ function renderAdd(){
   if(pick===null){
     $("#view").innerHTML=`
      <button class="back" data-go="diary">← Дневник</button>
-     <h1>${MEALS[addMeal]}: что съели?</h1>
+     <h1>${wholeDaySearch?"Что съели?":MEALS[addMeal]+": что съели?"}</h1>
      <div class="two snap three addtop"><label class="photo-btn"><input type="file" accept="image/*" id="photoIn" style="position:absolute;width:1px;height:1px;opacity:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото блюда</label><label class="photo-btn"><input type="file" accept="image/*" id="scanIn" style="position:absolute;width:1px;height:1px;opacity:0">${ICON_BC}Скан упаковки</label><button class="photo-btn" data-go="say">${ICON_MIC}Сказать</button></div>
      <input class="search" id="q" type="search" placeholder="Поиск: борщ, гречка, латте…" aria-label="Поиск блюда" value="${esc(q)}" autocomplete="off">
-     ${recents().length?`<div class="sheet res recents"><h2 style="font-size:15px;margin:0 0 4px">Недавнее, добавить одним нажатием</h2>${recents().map((x,i)=>`<button data-re="${i}"><span>${esc(x.n)}</span><span class="kcal">${x.g?fmt(x.g)+" г · ":""}${fmt(x.k)} ккал +</span></button>`).join("")}</div>`:""}
+     ${recents().length?`<div class="sheet res recents"><h2 style="font-size:15px;margin:0 0 4px">Недавнее, добавить в «${MEALS[addMeal]}»</h2>${recents().map((x,i)=>`<button data-re="${i}"><span>${esc(x.n)}</span><span class="kcal">${x.g?fmt(x.g)+" г · ":""}${fmt(x.k)} ккал +</span></button>`).join("")}</div>`:""}
      <div class="sheet res" id="res">${foodRows()}</div>
-     <button class="ghost" data-pick="custom">Своё блюдо: ввести калории вручную</button>
+     <button class="ghost" data-pick="custom">Ввести калории вручную</button>
      <p class="note">Калорийность средняя, по справочным данным.</p>`;
     return;
   }
@@ -806,7 +831,7 @@ function photoFind(){
 }
 async function startPhoto(file){
   goal("photo");
-  if(tab!=="add"){const hr=new Date().getHours();addMeal=hr<11?0:hr<16?1:hr<21?2:3}
+  if(tab!=="add")addMeal=suggestedMeal()
   if(photo&&photo.url)URL.revokeObjectURL(photo.url);
   photo={url:URL.createObjectURL(file),status:"Смотрю на фото…",result:null,err:null,sel:[],q:""};pick=null;go("photo");
   const job=photo;
@@ -937,7 +962,7 @@ async function recognizeLabel(img){
 async function startScan(file,more=false){
   const previous=more?scan:null;
   goal("scan");
-  if(!more&&tab!=="add"){const hr=new Date().getHours();addMeal=hr<11?0:hr<16?1:hr<21?2:3}
+  if(!more&&tab!=="add")addMeal=suggestedMeal()
   if(previous)addMeal=+$("#ml").value;
   if(scan&&scan.url)URL.revokeObjectURL(scan.url);
   scan={url:URL.createObjectURL(file),status:"Считываем данные с упаковки…",n:previous?$("#fn").value.trim():"",k100:previous?+$("#k100").value||"":"",g:previous?+$("#grams").value||"":"",src:"",code:previous?.code||"",weights:previous?.weights?.slice()||[],edited:{...previous?.edited}};pick=null;go("scan");
@@ -1042,26 +1067,28 @@ function renderEntry(){
 }
 
 /* ---------- Мимо рта: меню, корзина, доставка ---------- */
+function menuQuantity(d){
+  const count=cart[d.id]||0;
+  return `<div class="step dish-step">
+    ${count?`<button data-dec="${d.id}" aria-label="Убрать порцию: ${d.n}">${IC.M}</button><b aria-label="Порций: ${count}">${count}</b>`:""}
+    <button class="add" data-add="${d.id}" aria-label="Добавить порцию: ${d.n}">${IC.P}</button>
+  </div>`;
+}
+
 function renderMenu(){
   if(order){tab="track";return renderTrack()}
-  const t=totals();
   const list=DISHES.filter(d=>cat==="Всё"||d.c===cat);
   $("#view").innerHTML=`
    <h1>Что пронесём мимо рта?</h1>
-   <p class="lead">Закажите всё, что хочется. Ничего не привезут, а вес и деньги останутся при вас.</p>
-   <div class="saved-strip">
-     <div class="kpi"><div class="l">Мимо рта</div><div class="v">${fmt(t.k)} ккал</div></div>
-     <div class="kpi"><div class="l">Сэкономлено</div><div class="v">${fmt(t.p)} ₽</div></div>
-   </div>
+   <p class="lead menu-intro">Виртуальный заказ · 0 ₽ к оплате</p>
    <div class="chips" role="toolbar" aria-label="Категории">${CATS.map(c=>`<button class="chip" data-cat="${c}" aria-pressed="${c===cat}">${c}</button>`).join("")}</div>
    <div class="grid">${list.map(d=>`
      <div class="dish">
        <div class="pic" aria-hidden="true">${pic(d)}</div>
        <div class="meta">
          <div class="name">${d.n}</div>
-         <div class="kcal">${fmt(d.k)} ккал</div>
-         <div class="row"><span class="price">${fmt(d.p)} ₽</span>
-         ${cart[d.id]?`<button class="qty" data-add="${d.id}" aria-label="Добавить ещё">${IC.P}<i>${cart[d.id]}</i></button>`:`<button class="add" data-add="${d.id}" aria-label="Добавить ${d.n}">${IC.P}</button>`}</div>
+         <div class="facts"><span class="kcal">${fmt(d.k)} ккал</span><span class="price">${fmt(d.p)} ₽</span></div>
+         <div class="dish-actions">${menuQuantity(d)}</div>
        </div>
      </div>`).join("")}</div>`;
 }
@@ -1071,7 +1098,7 @@ function renderCart(){
   if(!ci.q){tab="menu";return render()}
   $("#view").innerHTML=`
    <button class="back" data-go="menu">← Меню</button>
-   <h1 style="margin-top:6px">Ваш заказ</h1>
+   <h1 style="margin-top:6px">Ваш виртуальный заказ</h1>
    <div class="sheet">${Object.keys(cart).map(id=>{const d=dish(id);return`
      <div class="line"><div class="e" aria-hidden="true">${pic(d)}</div>
        <div class="t"><div style="font-weight:600">${d.n}</div><div class="kcal">${fmt(d.k*cart[id])} ккал · ${fmt(d.p*cart[id])} ₽</div></div>
@@ -1079,7 +1106,7 @@ function renderCart(){
      </div>`}).join("")}</div>
    <div class="sheet">
      <div class="tot"><span class="muted">Блюда</span><span>${fmt(ci.p)} ₽</span></div>
-     <div class="tot"><span class="muted">Доставка</span><span>149 ₽</span></div>
+     <div class="tot"><span class="muted">Доставка по меню</span><span>149 ₽</span></div>
      <div class="tot"><span class="muted">Калорийность</span><span>${fmt(ci.k)} ккал</span></div>
      <div class="tot big"><span>К оплате</span><span>0 ₽</span></div>
    </div>
@@ -1185,11 +1212,12 @@ function renderWeek(N){
     date.setDate(date.getDate()-1);
     return day;
   });
+  const loggedDays=days.filter(day=>day.logged).length;
   const max=Math.max(N*1.12,...days.map(day=>day.eaten));
   const percent=amount=>(amount/max*100).toFixed(2)+"%";
   return `<section class="sheet" aria-labelledby="week-title">
      <h2 id="week-title">Последние 7 дней</h2>
-     <p class="note week-note">Записи в дневнике относительно текущей дневной нормы.</p>
+     <p class="note week-note">Дни с записями о еде · <b>${loggedDays} из 7</b></p>
      <table class="week" aria-labelledby="week-title" style="--week-limit:${percent(N)}">
        <thead><tr><th scope="col">День</th><th scope="col">Съедено, ккал</th><th scope="col">Мимо рта, ккал</th></tr></thead>
        <tbody>${days.map((day,index)=>{
@@ -1197,9 +1225,9 @@ function renderWeek(N){
          const excess=day.eaten-within;
          return `<tr class="${index===0?"week-today":""}">
            <th scope="row">${index===0?"<strong>Сегодня</strong>":""}<time datetime="${day.key}">${day.label}</time></th>
-           <td>${day.logged?`<div class="week-amount"><b>${fmt(day.eaten)}</b>${excess?`<span class="week-over" aria-label="${fmt(excess)} ккал сверх нормы">+${fmt(excess)}</span>`:""}</div>
-             <div class="week-track" aria-hidden="true"><i style="width:${percent(within)}"></i>${excess?`<i class="week-over" style="width:${percent(excess)}"></i>`:""}</div>`:'<span class="week-empty">Нет записей</span>'}</td>
-           <td>${day.saved?`<span class="week-saved">${fmt(day.saved)}</span>`:'<span class="week-empty" aria-label="Без виртуальных заказов">—</span>'}</td>
+           <td>${day.logged?`<button class="week-link" data-open-day="${day.key}" aria-label="Открыть дневник за ${day.label}, съедено ${fmt(day.eaten)} ккал"><span class="week-amount"><b>${fmt(day.eaten)}</b>${excess?`<span class="week-over" aria-label="${fmt(excess)} ккал сверх нормы">+${fmt(excess)}</span>`:""}</span>
+             <span class="week-track" aria-hidden="true"><i style="width:${percent(within)}"></i>${excess?`<i class="week-over" style="width:${percent(excess)}"></i>`:""}</span></button>`:'<span class="week-empty">Нет записей</span>'}</td>
+           <td>${day.saved?`<button class="week-link week-saved" data-open-day="${day.key}" aria-label="Открыть дневник за ${day.label}, в виртуальных заказах ${fmt(day.saved)} ккал"><b>${fmt(day.saved)}</b></button>`:'<span class="week-empty" aria-label="Без виртуальных заказов">—</span>'}</td>
          </tr>`;
        }).join("")}</tbody>
      </table>
@@ -1212,13 +1240,15 @@ function renderMe(){
   const t=totals(), N=norm();
   $("#view").innerHTML=`
    <h1>Ваши итоги</h1>
-   <div class="saved-strip">
-     <div class="kpi"><div class="l">Мимо рта</div><div class="v">${fmt(t.k)} ккал</div></div>
-     <div class="kpi"><div class="l">Сэкономлено</div><div class="v">${fmt(t.p)} ₽</div></div>
-     <div class="kpi"><div class="l">Заказов</div><div class="v">${t.n}</div></div>
-     <div class="kpi"><div class="l">Ккал на заказ</div><div class="v">${t.n?fmt(t.k/t.n):"—"}</div></div>
-   </div>
    ${renderWeek(N)}
+   <section class="sheet order-totals">
+     <h2>Виртуальные заказы за всё время</h2>
+     <div class="saved-strip">
+       <div class="kpi"><div class="l">Калории в заказах</div><div class="v">${fmt(t.k)} ккал</div></div>
+       <div class="kpi"><div class="l">Условная экономия</div><div class="v">${fmt(t.p)} ₽</div></div>
+       <div class="kpi"><div class="l">Заказов</div><div class="v">${t.n}</div></div>
+     </div>
+   </section>
    ${weightChart()}
    <button class="sheet invite" data-share="invite"><span class="ie" aria-hidden="true">🤝</span><span><b>Худеть вместе легче</b><span class="kcal">Пригласите друга: вдвоём проще держать серию и не срываться</span></span><span class="wbtn">Пригласить</span></button>
    <div class="sheet"><div class="tot"><span class="muted">Дневная норма</span><span>${fmt(N)} ккал</span></div><button class="ghost" data-go="setup">${S.profile?"Изменить данные":"Рассчитать норму"}</button></div>
@@ -1262,11 +1292,38 @@ document.addEventListener("click",e=>{
     L.forEach(x=>{const f=FOODS[x.i];S.log[day].push({n:f[0],k:Math.round(f[1]*x.g/100),g:x.g,m:addMeal,k100:f[1]})});goal("add_food");markDay();pick=null;q="";if(save())toast(`Записано: ${L.length} ${plural(L.length,"блюдо","блюда","блюд")}`);return go("diary")}
   if(b.dataset.crave){goal("crave_tile");const id=b.dataset.crave;if(order)return go("track");if(!cart[id])cart[id]=1;return go("cart")}
   if(b.dataset.cat){cat=b.dataset.cat;return render()}
-  if(b.dataset.add){cart[b.dataset.add]=(cart[b.dataset.add]||0)+1;if(tab==="menu")toast("Добавлено в заказ");return render()}
-  if(b.dataset.dec){if(--cart[b.dataset.dec]<=0)delete cart[b.dataset.dec];return render()}
+  if(b.dataset.add||b.dataset.dec){
+    const id=b.dataset.add||b.dataset.dec;
+    const count=(cart[id]||0)+(b.dataset.add?1:-1);
+    if(count>0)cart[id]=count;
+    else delete cart[id];
+    if(tab==="menu")toast(b.dataset.add?"Добавлено в заказ":"Убрано из заказа");
+    render();
+    if(e.detail===0){
+      const control=b.dataset.dec&&count>0?"dec":"add";
+      (document.querySelector(`[data-${control}="${id}"]`)||document.querySelector(".step button, .dish-step button"))?.focus({preventScroll:true});
+    }
+    return;
+  }
   if(b.dataset.tab){return go(b.dataset.tab==="menu"&&order?"track":b.dataset.tab)}
   if(b.dataset.go){return go(b.dataset.go==="menu"&&order?"track":b.dataset.go)}
-  if(b.dataset.addmeal){addMeal=+b.dataset.addmeal;pick=null;q="";return go("add")}
+  if(b.id==="diarySearch"||b.dataset.addmeal){
+    wholeDaySearch=b.id==="diarySearch";
+    addMeal=wholeDaySearch?suggestedMeal():+b.dataset.addmeal;
+    pick=null;
+    q="";
+    go("add");
+    if(wholeDaySearch)$("#q").focus();
+    return;
+  }
+  if(b.dataset.openDay){
+    viewDay=b.dataset.openDay===dk()?null:b.dataset.openDay;
+    go("diary");
+    const heading=$(".daynav h1");
+    heading.tabIndex=-1;
+    heading.focus({preventScroll:true});
+    return;
+  }
   if(b.dataset.pick){pick=b.dataset.pick==="custom"?"custom":+b.dataset.pick;return go("add")}
   if(b.dataset.back){pick=null;return go("add")}
   if(b.dataset.g){const g=$("#grams");g.value=b.dataset.g;g.dispatchEvent(new Event("input",{bubbles:true}));return}
