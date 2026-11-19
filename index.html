@@ -99,7 +99,8 @@ nav.tabs button[aria-current="true"]{color:var(--accent-text)}
 .steps li.now .dot{border-color:var(--accent);background:var(--accent);animation:pulse 1.2s infinite}
 @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(224,70,110,.2)}}
 .reward{text-align:center;padding-top:6px}
-.reward .badge{width:140px;height:140px;margin:6px auto 10px;animation:pop .6s cubic-bezier(.2,1.6,.4,1)}
+.reward .badge{width:140px;height:140px;margin:6px auto 10px}
+.reward .badge.order-complete{animation:pop .6s cubic-bezier(.2,1.6,.4,1)}
 @keyframes pop{from{transform:scale(.6)}to{transform:scale(1)}}
 .reward .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px;text-align:left}
 .equiv{margin-top:12px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;text-align:left}
@@ -225,7 +226,10 @@ textarea.search{font:inherit;font-size:16px;resize:none;color:inherit}
 .guess button:last-child{border-bottom:0}
 .guess b{font-weight:600}
 .pct{font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums;color:var(--save-text);flex:none}
-@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+  #courierMarker{display:none}
+}
 </style>
 </head><body>
 <div class="app">
@@ -1133,33 +1137,62 @@ function startOrder(){
 }
 function progress(){return order?Math.max(0,Math.min(1,(Date.now()-order.start)/(TRIP_SEC*1000))):0}
 
-function renderTrack(){
-  if(!order){tab="menu";return renderMenu()}
+// Маршрут объезжает точку «Вы», как в логотипе.
+const COURIER_ROUTE=[[20,120],[90,120],[120,190],[250,190],[280,120],[350,120]];
+const ROUTE_START=.5, ROUTE_END=.97;
+
+function updateTrack(){
   const pr=progress();
-  const si=pr<.12?0:pr<.35?1:pr<.5?2:pr<.97?3:4;
+  const si=pr<.12?0:pr<.35?1:pr<ROUTE_START?2:pr<ROUTE_END?3:4;
   const left=Math.max(0,Math.ceil((order.start+TRIP_SEC*1000-Date.now())/1000));
-  const timer=`${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;
-  $("#view").innerHTML=`
-   <span class="tag">Виртуальная доставка</span>
-   <h1 style="margin-top:4px">${STEPS[si]}</h1>
-   <div class="map">${mapSVG(Math.max(0, (pr-.5)/.47))}</div>
-   <div class="eta">
-     <div class="courier"><div class="ava">${esc(order.courier[0].charAt(0))}</div><div><div style="font-weight:600">${esc(order.courier[0])}</div><div class="kcal">${esc(order.courier[1])}</div></div></div>
-     <div style="text-align:right"><div class="kcal">До итога</div><div class="big">${timer}</div></div>
-   </div>
-   <button class="ghost" data-go="diary">В дневник</button>
-   <div class="sheet"><ol class="steps">${STEPS.map((s,i)=>`<li class="${i<si?"done":i===si?"now":""}"><span class="dot"></span>${s}</li>`).join("")}</ol></div>
-   <div class="sheet"><div class="tot"><span class="muted">В заказе</span>${order.ids?`<span class="thumbs">${order.ids.map(id=>PH[id]?`<img src="${PH[id]}" alt="">`:(dish(id)?.e||"🍽️")).join("")}</span>`:`<span>${esc(order.first)}</span>`}</div>
-   <div class="tot"><span class="muted">Калорийность</span><span>${fmt(order.k)} ккал</span></div></div>`;
+  $("#trackTimer").textContent=`${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;
+  const stage=$("#trackStage");
+  if(stage.textContent===STEPS[si])return;
+  stage.textContent=STEPS[si];
+  document.querySelectorAll(".steps li").forEach((step,index)=>{
+    step.classList.toggle("done",index<si);
+    step.classList.toggle("now",index===si);
+  });
 }
 
-function mapSVG(pr){
-  // маршрут объезжает точку «Вы», как в логотипе
-  const pts=[[20,120],[90,120],[120,190],[250,190],[280,120],[350,120]];
-  const seg=[];let L=0;for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);seg.push(d);L+=d}
-  let t=Math.min(pr,1)*L,x=pts[0][0],y=pts[0][1];
-  for(let i=0;i<seg.length;i++){if(t<=seg[i]){const f=t/seg[i];x=pts[i][0]+(pts[i+1][0]-pts[i][0])*f;y=pts[i][1]+(pts[i+1][1]-pts[i][1])*f;break}t-=seg[i];x=pts[i+1][0];y=pts[i+1][1]}
-  const path="M"+pts.map(p=>p.join(" ")).join(" L");
+function renderTrack(){
+  if(!order){tab="menu";return renderMenu()}
+  $("#view").innerHTML=`
+   <span class="tag">Виртуальная доставка</span>
+   <h1 id="trackStage" aria-live="polite" style="margin-top:4px"></h1>
+   <div class="map">${mapSVG()}</div>
+   <div class="eta">
+     <div class="courier"><div class="ava">${esc(order.courier[0].charAt(0))}</div><div><div style="font-weight:600">${esc(order.courier[0])}</div><div class="kcal">${esc(order.courier[1])}</div></div></div>
+     <div style="text-align:right"><div class="kcal">До итога</div><div class="big" id="trackTimer"></div></div>
+   </div>
+   <button class="ghost" data-go="diary">В дневник</button>
+   <div class="sheet"><ol class="steps">${STEPS.map(s=>`<li><span class="dot"></span>${s}</li>`).join("")}</ol></div>
+   <div class="sheet"><div class="tot"><span class="muted">В заказе</span>${order.ids?`<span class="thumbs">${order.ids.map(id=>PH[id]?`<img src="${PH[id]}" alt="">`:(dish(id)?.e||"🍽️")).join("")}</span>`:`<span>${esc(order.first)}</span>`}</div>
+   <div class="tot"><span class="muted">Калорийность</span><span>${fmt(order.k)} ккал</span></div></div>`;
+  updateTrack();
+  animateCourier();
+}
+
+function animateCourier(){
+  const distances=[0];
+  for(let i=1;i<COURIER_ROUTE.length;i++){
+    const [x,y]=COURIER_ROUTE[i], [prevX,prevY]=COURIER_ROUTE[i-1];
+    distances.push(distances[i-1]+Math.hypot(x-prevX,y-prevY));
+  }
+  const total=distances.at(-1);
+  const frames=COURIER_ROUTE.map(([x,y],i)=>({
+    transform:`translate(${x}px, ${y}px)`,
+    offset:ROUTE_START+(ROUTE_END-ROUTE_START)*distances[i]/total
+  }));
+  frames.unshift({...frames[0],offset:0});
+  frames.push({...frames.at(-1),offset:1});
+  const duration=TRIP_SEC*1000;
+  const animation=$("#courierMarker").animate?.(frames,{duration,easing:"linear",fill:"both"});
+  if(animation)animation.currentTime=progress()*duration;
+}
+
+function mapSVG(){
+  const path="M"+COURIER_ROUTE.map(p=>p.join(" ")).join(" L");
   const blocks=[[20,20,80,70],[130,10,90,40],[250,20,90,70],[10,150,80,60],[290,150,70,60]];
   return `<svg viewBox="0 0 370 220" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Карта: курьер едет в объезд">
    ${blocks.map(b=>`<rect x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}" rx="8" fill="var(--bg)"/>`).join("")}
@@ -1167,7 +1200,7 @@ function mapSVG(pr){
    <path d="${path}" fill="none" stroke="var(--route)" stroke-width="4" stroke-dasharray="2 8" stroke-linecap="round" stroke-linejoin="round"/>
    <circle cx="185" cy="110" r="26" fill="none" stroke="var(--ring)" stroke-width="10"/><text x="185" y="115" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)">Вы</text>
    <circle cx="20" cy="120" r="9" fill="var(--warm)"/>
-   <circle cx="${x}" cy="${y}" r="15" fill="var(--warm)" opacity=".3"/><circle cx="${x}" cy="${y}" r="9" fill="var(--warm)"/>
+   <g id="courierMarker" aria-hidden="true" style="transform:translate(20px,120px)"><circle r="15" fill="var(--warm)" opacity=".3"/><circle r="9" fill="var(--warm)"/></g>
   </svg>`;
 }
 
@@ -1180,7 +1213,10 @@ function finishOrder(){
   S.active=null;order=null;
   const persisted=save();
   if(persisted&&S.orders.length===1)trackPilotGoal("first_order_complete");
-  if(tab==="track")go("reward");
+  if(tab==="track"){
+    go("reward");
+    $(".reward .badge").classList.add("order-complete");
+  }
   else if(tab==="diary")renderDiary();
 }
 
@@ -1380,7 +1416,7 @@ document.addEventListener("click",e=>{
 setInterval(()=>{
   if(!order)return;
   if(progress()>=1){finishOrder();return}
-  if(tab==="track")renderTrack();
+  if(tab==="track")updateTrack();
 },1000);
 
 if(order)tab="track";else if(!S.profile&&!S.skippedProfile)tab=S.hello?"setup":"hello";
