@@ -6,10 +6,12 @@
 <meta name="theme-color" content="#fff6ee"><meta name="color-scheme" content="light only">
 <link rel="apple-touch-icon" href="icon-180.png?v=2">
 <link rel="manifest" href="manifest.webmanifest">
-<script src="ort.wasm.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Golos+Text:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Golos+Text:wght@400;500;600;700&display=swap">
 <style>
+.startup{position:fixed;inset:0;z-index:20;display:grid;place-content:center;justify-items:center;gap:8px;background:#fff6ee;color:#2b1a12;font:600 22px system-ui,sans-serif}
+.startup svg{width:64px;height:64px}
+.startup small{color:#7a675b;font-size:14px;font-weight:400}
 /* Layout: one-column phone app shell, sticky header, bottom tab bar, screens swapped in place */
 :root{
   --bg:#fff6ee; --surface:#ffffff; --ink:#2b1a12; --muted:#7a675b; --line:#f3e3d5;
@@ -226,6 +228,7 @@ textarea.search{font:inherit;font-size:16px;resize:none;color:inherit}
 }
 </style>
 </head><body>
+<div class="startup" id="startup" role="status"><svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="84" r="36" fill="none" stroke="var(--ring)" stroke-width="20"/><path d="M12 88 H30 C48 88 46 172 100 172 C154 172 152 88 170 88 H176" fill="none" stroke="var(--route)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M164 70 L184 88 L164 106" fill="none" stroke="var(--route)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Мимо рта</b><small>Открываем приложение…</small></div>
 <div class="app">
   <header>
     <div class="logo"><svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="84" r="36" fill="none" stroke="var(--ring)" stroke-width="20"/><path d="M12 88 H30 C48 88 46 172 100 172 C154 172 152 88 170 88 H176" fill="none" stroke="var(--route)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M164 70 L184 88 L164 106" fill="none" stroke="var(--route)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/></svg>мимо рта</div>
@@ -728,9 +731,24 @@ function renderSetup(){
 
 /* ---------- Распознавание по фото (в телефоне, без сервера) ---------- */
 function embM(){if(EM)return EM;const raw=atob(EMBD.b),n=EMBD.s.length,M=new Float32Array(n*512);for(let i=0;i<n*512;i++){let v=raw.charCodeAt(i);if(v>127)v-=256;M[i]=v*EMBD.s[(i/512)|0]}return EM=M}
+let photoEngine;
+function loadPhotoEngine(){
+  if(window.ort)return Promise.resolve();
+  if(!photoEngine)photoEngine=new Promise((resolve,reject)=>{
+    const script=document.createElement("script");
+    script.src="ort.wasm.min.js";
+    script.onload=()=>window.ort?resolve():reject(new Error("Движок распознавания не загрузился"));
+    script.onerror=()=>reject(new Error("Движок распознавания не загрузился"));
+    document.head.append(script);
+  }).catch(error=>{
+    photoEngine=null;
+    throw error;
+  });
+  return photoEngine;
+}
 async function loadModel(){
   if(ortSess)return ortSess;
-  if(!window.ort)throw new Error("движок распознавания не загрузился");
+  await loadPhotoEngine();
   ort.env.wasm.wasmPaths=new URL("./",location.href).href;ort.env.wasm.numThreads=1;
   const parts=await Promise.all(["model.part1.wasm","model.part2.wasm"].map(u=>fetch(u).then(r=>{if(!r.ok)throw new Error("файл модели "+r.status);return r.arrayBuffer()})));
   const buf=new Uint8Array(parts[0].byteLength+parts[1].byteLength);buf.set(new Uint8Array(parts[0]),0);buf.set(new Uint8Array(parts[1]),parts[0].byteLength);
@@ -1432,6 +1450,8 @@ setInterval(()=>{
 if(order)tab="track";else if(!S.profile&&!S.skippedProfile)tab=S.hello?"setup":"hello";
 showStorageMessage();
 render();
+$("#startup").remove();
+if(location.hostname==="appassets.androidplatform.net")window.prompt("mimo.ready","");
 trackPilotVisit();
 window.addEventListener("pageshow",trackPilotVisit);
 window.addEventListener("online",syncPilotGoals);
