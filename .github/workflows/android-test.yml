@@ -4,6 +4,7 @@ on:
     branches: [fix/android-standard-build-20261123]
     paths:
       - 'android/**'
+      - 'index.html'
       - '.github/workflows/android-test.yml'
   workflow_dispatch:
 jobs:
