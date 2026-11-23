@@ -20,11 +20,11 @@ public class DiaryActivity extends Activity {
     private WebView browser;
     private ValueCallback<Uri[]> uploadCallback;
     private Uri cameraUri;
-    private final WebViewAssetLoader assets = new WebViewAssetLoader.Builder()
-        .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
+    private WebViewAssetLoader assets;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        assets = new WebViewAssetLoader.Builder().addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
         browser = new WebView(this);
         setContentView(browser);
         browser.setBackgroundColor(android.graphics.Color.rgb(250,249,246));
