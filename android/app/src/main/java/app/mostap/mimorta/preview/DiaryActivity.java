@@ -1,6 +1,7 @@
 package app.mostap.mimorta.preview;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.os.Environment;
 import android.content.Intent;
@@ -50,18 +51,24 @@ public class DiaryActivity extends Activity {
                 String[] types = params.getAcceptTypes();
                 boolean image = false;
                 for (String type : types) if (type != null && type.contains("image")) image = true;
-                Intent intent;
-                if (image && params.isCaptureEnabled()) {
-                    intent = createCameraIntent();
-                    if (intent == null) intent = createGalleryIntent();
-                } else if (image) {
-                    intent = createGalleryIntent();
-                } else {
-                    intent = params.createIntent();
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                if (image) {
+                    new AlertDialog.Builder(DiaryActivity.this)
+                        .setTitle("Фото блюда или упаковки")
+                        .setItems(new String[]{"Сфотографировать", "Выбрать из галереи"}, (dialog, which) -> {
+                            Intent intent = which == 0 ? createCameraIntent() : null;
+                            if (intent == null) {
+                                cameraUri = null;
+                                intent = createGalleryIntent();
+                            }
+                            launchPhotoPicker(intent);
+                        })
+                        .setOnCancelListener(dialog -> finishUpload(null))
+                        .show();
+                    return true;
                 }
-                try { startActivityForResult(intent, PICK_FILE); }
-                catch (Exception e) { uploadCallback.onReceiveValue(null); uploadCallback = null; return false; }
+                Intent intent = params.createIntent();
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                launchPhotoPicker(intent);
                 return true;
             }
         });
@@ -69,11 +76,25 @@ public class DiaryActivity extends Activity {
         else browser.loadUrl("https://appassets.androidplatform.net/assets/index.html");
     }
 
+    private void launchPhotoPicker(Intent intent) {
+        try {
+            startActivityForResult(intent, PICK_FILE);
+        } catch (Exception error) {
+            finishUpload(null);
+        }
+    }
+
+    private void finishUpload(Uri[] selected) {
+        if (uploadCallback != null) uploadCallback.onReceiveValue(selected);
+        uploadCallback = null;
+        cameraUri = null;
+    }
+
     private Intent createGalleryIntent() {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("image/*");
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        return Intent.createChooser(intent, "Выберите фото");
+        return Intent.createChooser(intent, "Выбрать из галереи");
     }
 
     private Intent createCameraIntent() {
@@ -109,9 +130,7 @@ public class DiaryActivity extends Activity {
                 selected = new Uri[]{cameraUri};
             }
         }
-        uploadCallback.onReceiveValue(selected);
-        uploadCallback = null;
-        cameraUri = null;
+        finishUpload(selected);
     }
 
     @Override public void onBackPressed() {
