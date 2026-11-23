@@ -843,7 +843,30 @@ function saySubmit(){
   goal("say");if(photo&&photo.url)URL.revokeObjectURL(photo.url);
   photo={url:null,text:t,status:"",result:{top:[],notFood:false},err:null,sel:parseSay(t),q:""};sayText="";pick=null;go("photo");
 }
+window.mimoNativeSpeechResult=function(transcript,error){
+  const m=$("#sayMic"),h=$("#sayHint"),el=$("#sayT");
+  if(m)m.classList.remove("rec");
+  if(tab!=="say")return;
+  const spoken=(transcript||"").trim();
+  if(spoken){
+    const base=el?el.value.trim():sayText.trim();
+    sayText=(base?base+", ":"")+spoken;
+    if(el)el.value=sayText;
+    if(h)h.textContent="Готово. Проверяем сказанное";
+    return saySubmit();
+  }
+  if(h)h.textContent=error||"Нажмите и говорите";
+  if(error)toast(error);
+};
 function sayMic(){
+  if(window.MimoAndroidSpeech && typeof window.MimoAndroidSpeech.startRecognition==="function"){
+    const m=$("#sayMic"),h=$("#sayHint");
+    if(m)m.classList.add("rec");
+    if(h)h.textContent="Открываю распознавание речи…";
+    try { window.MimoAndroidSpeech.startRecognition(); }
+    catch(e) { if(m)m.classList.remove("rec"); if(h)h.textContent="Можно ввести еду вручную"; }
+    return;
+  }
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){$("#sayT").focus();return toast("Нажмите на микрофон на клавиатуре телефона и говорите")}
   if(rec){rec.finish(true);return}
