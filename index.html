@@ -735,7 +735,7 @@ function renderSetup(){
    </div>
    <div class="field" id="twF" ${p.goal==1?"hidden":""}><label for="tw">Желаемый вес, кг</label><input id="tw" type="number" inputmode="decimal" value="${p.tw||(p.goal==2?p.w+5:p.w-5)}"></div>
    <button class="cta" id="saveProfile">Рассчитать</button>
-   ${S.profile?"":`<button class="ghost" id="skipProfile">Пропустить, взять 2 000 ккал</button>`}
+   ${S.profile?"":`<button class="ghost" id="skipProfile">Продолжить без расчёта нормы</button>`}
    <p class="note">Это ориентир, а не медицинская рекомендация.</p>`;
 }
 
