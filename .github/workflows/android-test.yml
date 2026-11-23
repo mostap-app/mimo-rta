@@ -48,6 +48,8 @@ jobs:
         run: |
           apk=android/app/build/outputs/apk/debug/app-debug.apk
           unzip -tq "$apk"
+          unzip -Z1 "$apk" | grep -Fx assets/scan/rus.traineddata
+          cmp <(gzip -dc scan/rus.traineddata.gz) <(unzip -p "$apk" assets/scan/rus.traineddata)
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" > "$RUNNER_TEMP/isolated-badging"

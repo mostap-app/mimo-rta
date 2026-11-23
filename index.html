@@ -326,7 +326,7 @@ function plural(n,a,b,c){n=Math.abs(n)%100;const m=n%10;if(n>10&&n<20)return c;i
 const DIARY_KEY="mimorta";
 let storedDiary, unreadableDiary=false, storageMessage="", storageRevision=0;
 let S=load();
-let photo=null, ortSess=null, EM=null, scan=null, ocrW=null, editIdx=null, viewDay=null, undo=null;
+let photo=null, ortSess=null, EM=null, scan=null, editIdx=null, viewDay=null, undo=null;
 const curDay=()=>viewDay||dk();
 /* Яндекс Метрика: впишите номер счётчика, 0 = выключено */
 const METRIKA_ID=114217032;
@@ -510,7 +510,7 @@ function mimoOn(day){return S.orders.filter(o=>o.day===day).reduce((a,o)=>a+o.k,
 function totals(){return S.orders.reduce((a,o)=>({k:a.k+o.k,p:a.p+o.p,n:a.n+1}),{k:0,p:0,n:0})}
 function cartInfo(){let q=0,p=0,k=0;for(const id in cart){const d=dish(id);q+=cart[id];p+=d.p*cart[id];k+=d.k*cart[id]}return{q,p,k}}
 function toast(t,canUndo){toast.at=Date.now();const el=$("#toast");el.textContent=t;if(canUndo){const u=document.createElement("button");u.id="undo";u.textContent="Вернуть";el.append(" ",u)}el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{el.hidden=true;if(canUndo)undo=null},canUndo?5000:Math.max(1800,t.length*55))}
-function go(t){if(tab==="say"&&t!=="say"&&rec){const microphone=rec;rec=null;microphone.kill()}if(Date.now()-(toast.at||0)>400)$("#toast").hidden=true;tab=t;window.scrollTo(0,0);render()}
+function go(t){if(tab==="scan"&&t!=="scan"&&scan){stopLabel(scan);scan.status=""}if(tab==="say"&&t!=="say"&&rec){const microphone=rec;rec=null;microphone.kill()}if(Date.now()-(toast.at||0)>400)$("#toast").hidden=true;tab=t;window.scrollTo(0,0);render()}
 
 function render(){
   if(tab!=="add")$("#view").classList.remove("searching");
@@ -1000,23 +1000,32 @@ function parseLabel(raw){
   return {k100:k>0&&k<=950?Math.round(k*10)/10:0,g:mass?parseQty(mass[1]):serving<=5000?serving:0,serving,portion};
 
 }
-let labelQueue=Promise.resolve();
-function readLabel(img){
-  const task=labelQueue.then(()=>recognizeLabel(img));
-  labelQueue=task.catch(()=>{});
-  return task;
-}
-async function recognizeLabel(img){
-  await loadScript("scan/tesseract.min.js");
-  if(!ocrW){
-    const base=new URL("scan/",location.href).href;
-    ocrW=await Tesseract.createWorker("rus",1,{workerPath:base+"worker.min.js",corePath:base,langPath:base.replace(/\/$/,""),gzip:true});
+function stopLabel(job){
+  if(!job)return;
+  job.cancelled=true;
+  if(job.worker){
+    job.worker.terminate().catch(()=>{});
+    job.worker=null;
   }
+}
+async function readLabel(img,job){
+  await loadScript("scan/tesseract.min.js");
+  if(job.cancelled)return;
+  const base=new URL("scan/",location.href).href;
+  const ocrW=await Tesseract.createWorker("rus",1,{workerPath:base+"worker.min.js",corePath:base,langPath:base.replace(/\/$/,""),gzip:!window.MimoAndroidSpeech});
+  if(job.cancelled){await ocrW.terminate();return}
+  job.worker=ocrW;
+  try{return await recognizeLabel(img,ocrW)}
+  finally{
+    if(job.worker===ocrW){job.worker=null;await ocrW.terminate()}
+  }
+}
+async function recognizeLabel(img,ocrW){
   await ocrW.setParameters({tessedit_pageseg_mode:"3"});
   const {data}=await ocrW.recognize(toCanvas(img,2000),{},{text:true,blocks:true});
   const r=parseLabel(data.text||"");r.n=guessName(data);
   r.weights=r.g?[r.g]:[];
-  {
+  if(!r.n||!r.k100||!r.g){
     const crop=document.createElement("canvas");
     const sourceWidth=Math.max(1,Math.round(img.naturalWidth*.56));
     const scale=Math.min(2,2800/Math.max(sourceWidth,img.naturalHeight));
@@ -1042,13 +1051,14 @@ async function startScan(file,more=false){
   goal("scan");
   if(!more&&tab!=="add")addMeal=suggestedMeal()
   if(previous)addMeal=+$("#ml").value;
+  stopLabel(scan);
   if(scan&&scan.url)URL.revokeObjectURL(scan.url);
   scan={url:URL.createObjectURL(file),status:"Считываем данные с упаковки…",n:previous?$("#fn").value.trim():"",k100:previous?+$("#k100").value||"":"",g:previous?+$("#grams").value||"":"",src:"",code:previous?.code||"",weights:previous?.weights?.slice()||[],edited:{...previous?.edited}};pick=null;go("scan");
   const job=scan;
   // Не блокируем ручной ввод, даже если движок OCR на устройстве завис.
   const watchdog=setTimeout(()=>{
     if(scan!==job||!job.status)return;
-    job.cancelled=true;
+    stopLabel(job);
     job.status="";
     job.src="Распознавание заняло слишком много времени. Введите название, калории и порцию вручную.";
     if(tab==="scan")renderScan();
@@ -1074,7 +1084,7 @@ async function startScan(file,more=false){
         if(!mine&&product.g&&!job.weights.includes(product.g))job.weights.push(product.g);
       }
     }
-    const label=await readLabel(img);
+    const label=await readLabel(img,job);
     if(job.cancelled)return;
     if(!job.edited.fn)job.n=betterLabelName(job.n,label.n);
     if(label.k100&&!job.edited.k100)job.k100=label.k100;
@@ -1458,7 +1468,7 @@ document.addEventListener("click",e=>{
   if(b.dataset.day){const d=new Date((viewDay||dk())+"T12:00:00");d.setDate(d.getDate()+(+b.dataset.day));const k=dk(d);viewDay=k>=dk()?null:k;return render()}
   if((b.id==="addFood"||b.id==="addScan"||b.id==="addCustom")&&$("#ml"))addMeal=+$("#ml").value;
   if(b.id==="addFood"){const f=FOODS[pick];const g=+$("#grams").value||0,k1=+$("#k100").value||0;if(g<=0)return toast("Укажите граммы");if(k1<=0)return toast("Укажите калории на 100 г");if(k1!==f[1]){S.kfix=S.kfix||{};S.kfix[f[0]]=k1;f[1]=k1}return addEntry(f[0],k1*g/100,g,k1)}
-  if(b.id==="stopScan"){if(scan){scan.cancelled=true;scan.status="";scan.src="Введите данные с упаковки вручную.";renderScan()}return}
+  if(b.id==="stopScan"){if(scan){stopLabel(scan);scan.status="";scan.src="Введите данные с упаковки вручную.";renderScan()}return}
   if(b.id==="addScan"){const n=$("#fn").value.trim()||"Продукт",k1=+$("#k100").value||0,g=+$("#grams").value||0;if(k1<=0)return toast("Укажите калории на 100 г");if(g<=0)return toast("Укажите граммы");rememberFood(n,k1,g,scan&&scan.code);return addEntry(n,k1*g/100,g,k1)}
   if(b.dataset.edit){editIdx=+b.dataset.edit;return go("entry")}
   if(b.id==="saveEntry"){const e=S.log[curDay()][editIdx];
