@@ -8,6 +8,10 @@ import android.content.Intent;
 import android.content.ClipData;
 import android.net.Uri;
 import android.provider.MediaStore;
+import android.speech.RecognizerIntent;
+import android.webkit.JavascriptInterface;
+import org.json.JSONObject;
+import java.util.ArrayList;
 import android.view.View;
 import android.webkit.*;
 import java.io.File;
@@ -18,6 +22,7 @@ import androidx.webkit.WebViewClientCompat;
 
 public class DiaryActivity extends Activity {
     private static final int PICK_FILE = 4001;
+    private static final int PICK_SPEECH = 4002;
     private WebView browser;
     private ValueCallback<Uri[]> uploadCallback;
     private Uri cameraUri;
@@ -27,6 +32,7 @@ public class DiaryActivity extends Activity {
         super.onCreate(state);
         assets = new WebViewAssetLoader.Builder().addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
         browser = new WebView(this);
+        browser.addJavascriptInterface(new SpeechBridge(), "MimoAndroidSpeech");
         setContentView(browser);
         browser.setBackgroundColor(android.graphics.Color.rgb(250,249,246));
         WebSettings settings = browser.getSettings();
@@ -76,6 +82,31 @@ public class DiaryActivity extends Activity {
         else browser.loadUrl("https://appassets.androidplatform.net/assets/index.html");
     }
 
+    private class SpeechBridge {
+        @JavascriptInterface
+        public void startRecognition() {
+            runOnUiThread(() -> {
+                Intent speech = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                speech.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                speech.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
+                speech.putExtra(RecognizerIntent.EXTRA_PROMPT, "Скажите, что съели");
+                speech.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+                try {
+                    startActivityForResult(speech, PICK_SPEECH);
+                } catch (Exception e) {
+                    deliverSpeech("", "На телефоне не найден сервис распознавания речи. Можно ввести еду вручную.");
+                }
+            });
+        }
+    }
+
+    private void deliverSpeech(String text, String error) {
+        if (browser == null) return;
+        String js = "window.mimoNativeSpeechResult && window.mimoNativeSpeechResult("
+            + JSONObject.quote(text) + "," + JSONObject.quote(error) + ")";
+        browser.evaluateJavascript(js, null);
+    }
+
     private void launchPhotoPicker(Intent intent) {
         try {
             startActivityForResult(intent, PICK_FILE);
@@ -117,6 +148,17 @@ public class DiaryActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent result) {
         super.onActivityResult(requestCode, resultCode, result);
+        if (requestCode == PICK_SPEECH) {
+            if (resultCode == RESULT_OK && result != null) {
+                ArrayList<String> matches = result.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                if (matches != null && !matches.isEmpty() && !matches.get(0).trim().isEmpty()) {
+                    deliverSpeech(matches.get(0).trim(), "");
+                    return;
+                }
+            }
+            deliverSpeech("", resultCode == RESULT_CANCELED ? "" : "Речь не распознана. Попробуйте ещё раз.");
+            return;
+        }
         if (requestCode != PICK_FILE || uploadCallback == null) return;
         Uri[] selected = null;
         if (resultCode == RESULT_OK) {
