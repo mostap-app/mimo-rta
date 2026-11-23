@@ -4,10 +4,19 @@ android {
     compileSdk 35
     defaultConfig {
         applicationId 'app.mostap.mimorta.preview'
+        manifestPlaceholders = [appLabel: 'Мимо рта']
         minSdk 29
         targetSdk 32
-        versionCode 2
-        versionName '0.2.0-gallery-test'
+        versionCode 3
+        versionName '0.2.1-test'
+    }
+    buildTypes {
+        debug {
+            if (providers.gradleProperty('isolatedTest').isPresent()) {
+                applicationIdSuffix '.qa'
+                manifestPlaceholders.appLabel = 'Мимо рта · Тест'
+            }
+        }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }

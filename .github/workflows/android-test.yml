@@ -24,11 +24,11 @@ jobs:
       - name: Copy offline resources and make camera/gallery inputs
         run: python3 android/prepare_assets.py
       - name: Build signed debug APK with official Android Gradle Plugin
-        run: cd android && gradle --no-daemon assembleDebug
+        run: cd android && gradle --no-daemon lintDebug assembleDebug
       - name: Verify APK with Android apksigner
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/debug/app-debug.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk | head -20
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk | sed -n '1,20p'
       - name: Check launcher icon in the packaged APK
         run: |
           aapt="$ANDROID_HOME/build-tools/35.0.0/aapt"
@@ -38,4 +38,31 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Mimo-rta-Android-standard-test
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Save regular APK and build isolated phone-test variant
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/regular.apk"
+          cd android && gradle --no-daemon -PisolatedTest assembleDebug
+      - name: Verify isolated APK signature, archive and alignment
+        run: |
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -tq "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" > "$RUNNER_TEMP/isolated-badging"
+          grep -F "name='app.mostap.mimorta.preview.qa'" "$RUNNER_TEMP/isolated-badging"
+          grep -E "^application: .*icon='res/mipmap-nodpi(-v4)?/ic_launcher[.]png'" "$RUNNER_TEMP/isolated-badging"
+      - name: Enable KVM for emulator
+        run: sudo chmod 666 /dev/kvm
+      - name: Verify installation and launch on Android 11
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          disable-animations: true
+          script: bash android/check-launch.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mimo-rta-Android-isolated-test
           path: android/app/build/outputs/apk/debug/app-debug.apk
