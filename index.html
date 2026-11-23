@@ -1095,8 +1095,7 @@ function renderScan(){
    <button class="back" data-go="add">← Назад</button>
    <h1>Продукт с упаковки</h1>
    <img class="shot" src="${scan.url}" alt="Фото упаковки">
-   \u0024{scan.status?`<div class="status" role="status"><span class="spin"></span>\u0024{esc(scan.status)}</div><button class="ghost" id="stopScan">Ввести данные вручную</button>`:`<p class="note">\u0024{esc(scan.src)}</p>`}
-   
+   ${scan.status ? '<div class="status" role="status"><span class="spin"></span>'+esc(scan.status)+'</div><button class="ghost" id="stopScan">Ввести данные вручную</button>' : '<p class="note">'+esc(scan.src)+'</p>'}
    <label class="photo-btn">Добавить фото другой стороны<input type="file" accept="image/*" id="scanMore" style="position:absolute;width:1px;height:1px;opacity:0"></label>
    <div class="field"><label for="fn">Название</label><input id="fn" value="${esc(scan.n)}" placeholder="Как называется продукт? Например, йогурт клубничный"></div>
    <div class="two"><div class="field"><label for="k100">Ккал на 100 г</label><input id="k100" type="number" inputmode="decimal" min="0" value="${scan.k100}" placeholder="с упаковки"></div>
