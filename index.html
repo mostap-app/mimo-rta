@@ -533,7 +533,7 @@ function craveBlock(left,mimo){
   const title=left<0?"Норма уже позади. Но хочется?":left<400?"Почти всё съедено. Тянет ещё?":h>=20?"Вечером тянет на вредное?":"Тянет на вредное?";
   const fresh=!S.orders.length;
   return `<section class="sheet crave2 diary-crave ${fresh?"hero":""}">
-    ${fresh?`<span class="badge-new">✨ Фишка приложения</span>`:""}
+    ${fresh?`<span class="badge-new">✨ Попробуйте вместо доставки</span>`:""}
     <h2>${title}</h2>
     <p class="note">Виртуальный заказ любимой еды без оплаты и доставки.</p>
     ${mimo?`<span class="crave-total">В виртуальных заказах за день · ${fmt(mimo)} ккал</span>`:""}
@@ -674,8 +674,8 @@ function renderPlan(){const p=S.profile,f=forecast();
        <text x="14" y="${y(a)+(a>bw?-12:22)}" font-size="12" fill="var(--muted)">Сейчас ${fmt1(a)} кг</text><text x="${W-14}" y="${y(bw)+(a>bw?22:-12)}" font-size="12" fill="var(--save-text)" text-anchor="end">${fmt1(bw)} кг</text></svg>
      <p class="note">Темп ${p.goal===0?"около 0,5 кг":"около 0,35 кг"} в неделю: так вес уходит и не возвращается. Через ${Math.max(1,Math.round(f.weeks))} ${plural(Math.max(1,Math.round(f.weeks)),"неделю","недели","недель")} вы будете у цели, если держать норму.</p>`:`<p class="note">Держите норму, и вес останется стабильным.</p>`}
    </div>
-   <div class="sheet"><b>Что поможет дойти:</b><p class="note">• Записывайте еду каждый день: фото, скан или голосом.<br>• Взвешивайтесь раз в неделю утром, кнопка «Взвеситься» в дневнике.<br>• Тянет на вредное — закажите «мимо рта» вместо настоящей доставки.</p></div>
-   <div class="sheet crave2 hero"><span class="badge-new">✨ Фишка приложения</span><h2>Тянет на вредное?</h2><p class="note">Закажите любимую еду понарошку: всё как в доставке, только курьер не приедет. Калории и деньги останутся при вас.</p><button class="ghost" data-go="menu">Посмотреть меню «мимо рта»</button></div>
+   <div class="sheet"><b>Как придерживаться плана:</b><p class="note">• Записывайте еду каждый день: фото, скан или голосом.<br>• Взвешивайтесь раз в неделю утром, кнопка «Взвеситься» в дневнике.<br>• Тянет на вредное — закажите «мимо рта» вместо настоящей доставки.</p></div>
+   <div class="sheet crave2 hero"><span class="badge-new">✨ Попробуйте вместо доставки</span><h2>Тянет на вредное?</h2><p class="note">Закажите любимую еду понарошку: всё как в доставке, только курьер не приедет. Калории и деньги останутся при вас.</p><button class="ghost" data-go="menu">Посмотреть меню «мимо рта»</button></div>
    <button class="cta" data-go="diary">Начать</button>`;
 }
 function goalNorm(g,cw){const p=S.profile,bmr=10*cw+6.25*p.h-5*p.age+(p.sex==="m"?5:-161);return Math.max(p.sex==="m"?1500:1200,Math.round((bmr*ACT[p.act][1]+GOALS[g][1])/10)*10)}
