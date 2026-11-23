@@ -1045,9 +1045,19 @@ async function startScan(file,more=false){
   if(scan&&scan.url)URL.revokeObjectURL(scan.url);
   scan={url:URL.createObjectURL(file),status:"Считываем данные с упаковки…",n:previous?$("#fn").value.trim():"",k100:previous?+$("#k100").value||"":"",g:previous?+$("#grams").value||"":"",src:"",code:previous?.code||"",weights:previous?.weights?.slice()||[],edited:{...previous?.edited}};pick=null;go("scan");
   const job=scan;
+  // Не блокируем ручной ввод, даже если движок OCR на устройстве завис.
+  const watchdog=setTimeout(()=>{
+    if(scan!==job||!job.status)return;
+    job.cancelled=true;
+    job.status="";
+    job.src="Распознавание заняло слишком много времени. Введите название, калории и порцию вручную.";
+    if(tab==="scan")renderScan();
+  },20000);
   try{
     const img=new Image();img.src=job.url;await img.decode();
+    if(job.cancelled)return;
     await loadScript("scan/zxing.min.js").catch(()=>{});
+    if(job.cancelled)return;
     const code=readBarcode(toCanvas(img,1600))||readBarcode(toCanvas(img,900));
     if(code){
       if(job.code&&job.code!==code){
@@ -1057,6 +1067,7 @@ async function startScan(file,more=false){
       job.code=code;
       const mine=(S.my||[]).find(x=>x.code===code);
       const product=mine||await offLookup(code).catch(()=>null);
+      if(job.cancelled)return;
       if(product){
         if(!job.edited.fn)job.n=betterLabelName(job.n,product.n);
         if(!job.edited.k100)job.k100 ||= product.k100||"";
@@ -1064,13 +1075,16 @@ async function startScan(file,more=false){
       }
     }
     const label=await readLabel(img);
+    if(job.cancelled)return;
     if(!job.edited.fn)job.n=betterLabelName(job.n,label.n);
     if(label.k100&&!job.edited.k100)job.k100=label.k100;
     job.weights=[...new Set([...job.weights,...(label.weights||[])])];
     job.src=[!job.n&&"Название не прочитано. Добавьте фото лицевой стороны или впишите название.",!job.k100&&"Уточните калорийность на 100 г по этикетке."].filter(Boolean).join(" ")||"Проверьте данные и укажите, сколько съели.";
   }catch(e){
+    if(job.cancelled)return;
     job.src="Не получилось прочитать упаковку. Впишите данные с неё вручную.";
   }finally{
+    clearTimeout(watchdog);
     job.status="";
     if(scan===job&&tab==="scan")renderScan();
   }
@@ -1081,8 +1095,8 @@ function renderScan(){
    <button class="back" data-go="add">← Назад</button>
    <h1>Продукт с упаковки</h1>
    <img class="shot" src="${scan.url}" alt="Фото упаковки">
-   ${scan.status?`<div class="status" role="status"><span class="spin"></span>${esc(scan.status)}</div>`:`
-   <p class="note">${esc(scan.src)}</p>
+   \u0024{scan.status?`<div class="status" role="status"><span class="spin"></span>\u0024{esc(scan.status)}</div><button class="ghost" id="stopScan">Ввести данные вручную</button>`:`<p class="note">\u0024{esc(scan.src)}</p>`}
+   
    <label class="photo-btn">Добавить фото другой стороны<input type="file" accept="image/*" id="scanMore" style="position:absolute;width:1px;height:1px;opacity:0"></label>
    <div class="field"><label for="fn">Название</label><input id="fn" value="${esc(scan.n)}" placeholder="Как называется продукт? Например, йогурт клубничный"></div>
    <div class="two"><div class="field"><label for="k100">Ккал на 100 г</label><input id="k100" type="number" inputmode="decimal" min="0" value="${scan.k100}" placeholder="с упаковки"></div>
@@ -1092,7 +1106,7 @@ function renderScan(){
    <div class="bigk" id="kc">${scan.k100&&scan.g?fmt(scan.k100*scan.g/100)+" ккал":"—"}</div>
    <div class="field"><label for="ml">Приём пищи</label><select id="ml">${MEALS.map((m,i)=>`<option value="${i}" ${addMeal===i?"selected":""}>${m}</option>`).join("")}</select></div>
    <button class="cta" id="addScan">Добавить в дневник</button>
-   <p class="note">Совет: лучше всего фотографировать штрихкод крупно, а если его нет в базе, то таблицу «Пищевая ценность».</p>`}`;
+   <p class="note">Совет: лучше всего фотографировать штрихкод крупно, а если его нет в базе, то таблицу «Пищевая ценность».</p>`;
 }
 
 const FOOD_WORDS="паст макарон спагет лапш рамен удон йогурт кефир молок творог сыр сырок орех арахис миндал фундук кешью фисташ семечк хлеб батон багет лаваш тортил печень шоколад конфет батончик вафл пряник зефир мармелад халв сок нектар вод чай кофе какао напит лимонад квас морс компот смузи коктейл ряженк снежок айран простокваш сливк сметан масл майонез кетчуп соус колбас сосиск сардельк ветчин бекон грудинк курин куриц цыпл индейк говядин свинин телятин баранин мяс фарш котлет тефтел фрикадел наггетс рыб тунец тунц лосос сёмг семг форел сельд скумбри кальмар кревет икр крабов паштет хумус брынз моцарел пармезан фета салат суп борщ щи солянк каш гречк рис овсян хлоп мюсли гранол плов пельмен вареник блин сырник омлет яйц торт пирож пирог булочк круассан кекс маффин мороженое пломбир десерт пудинг мёд мед варень джем повидл фрукт яблок груш банан апельсин мандарин ягод клубник малин вишн черник овощ томат помидор огур картоф чипс сухар крекер хлебц пицц бургер сэндвич ролл шаурм нут фасол чечевиц горох кукуруз гриб шампиньон капуст морков свекл тыкв кабач баклажан оливк маслин изюм кураг финик чернослив булгур кускус киноа перловк пшен манк протеин гейнер".split(" ");
@@ -1445,6 +1459,7 @@ document.addEventListener("click",e=>{
   if(b.dataset.day){const d=new Date((viewDay||dk())+"T12:00:00");d.setDate(d.getDate()+(+b.dataset.day));const k=dk(d);viewDay=k>=dk()?null:k;return render()}
   if((b.id==="addFood"||b.id==="addScan"||b.id==="addCustom")&&$("#ml"))addMeal=+$("#ml").value;
   if(b.id==="addFood"){const f=FOODS[pick];const g=+$("#grams").value||0,k1=+$("#k100").value||0;if(g<=0)return toast("Укажите граммы");if(k1<=0)return toast("Укажите калории на 100 г");if(k1!==f[1]){S.kfix=S.kfix||{};S.kfix[f[0]]=k1;f[1]=k1}return addEntry(f[0],k1*g/100,g,k1)}
+  if(b.id==="stopScan"){if(scan){scan.cancelled=true;scan.status="";scan.src="Введите данные с упаковки вручную.";renderScan()}return}
   if(b.id==="addScan"){const n=$("#fn").value.trim()||"Продукт",k1=+$("#k100").value||0,g=+$("#grams").value||0;if(k1<=0)return toast("Укажите калории на 100 г");if(g<=0)return toast("Укажите граммы");rememberFood(n,k1,g,scan&&scan.code);return addEntry(n,k1*g/100,g,k1)}
   if(b.dataset.edit){editIdx=+b.dataset.edit;return go("entry")}
   if(b.id==="saveEntry"){const e=S.log[curDay()][editIdx];
