@@ -29,6 +29,13 @@ jobs:
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk | head -20
+      - name: Check launcher icon in the packaged APK
+        run: |
+          aapt="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          apk="android/app/build/outputs/apk/debug/app-debug.apk"
+          "$aapt" dump badging "$apk" > "$RUNNER_TEMP/badging.txt"
+          grep -E "^application: .*icon='res/mipmap-anydpi-v26/ic_launcher.xml'" "$RUNNER_TEMP/badging.txt"
+          "$aapt" dump xmltree "$apk" res/mipmap-anydpi-v26/ic_launcher.xml
       - uses: actions/upload-artifact@v4
         with:
           name: Mimo-rta-Android-standard-test
