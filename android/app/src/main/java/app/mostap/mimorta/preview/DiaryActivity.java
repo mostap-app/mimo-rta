@@ -31,6 +31,9 @@ public class DiaryActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         assets = new WebViewAssetLoader.Builder().addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
         browser = new WebView(this);
         browser.addJavascriptInterface(new SpeechBridge(), "MimoAndroidSpeech");
         setContentView(browser);

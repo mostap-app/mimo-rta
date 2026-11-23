@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
 regular=app.mostap.mimorta.preview
 isolated="$regular.qa"
 activity="$regular.DiaryActivity"
@@ -10,21 +9,19 @@ adb install "$RUNNER_TEMP/regular.apk"
 adb install "$apk"
 adb shell pm path "$regular"
 adb shell pm path "$isolated"
-
-check_welcome() {
+adb shell dumpsys webviewupdate | grep 'Current WebView package'
+check_screen() {
     adb shell am start -W -n "$isolated/$activity"
-    for attempt in {1..10}; do
-        if adb shell uiautomator dump /sdcard/mimo-window.xml >/dev/null &&
-           adb shell cat /sdcard/mimo-window.xml | grep -F 'Начать' >/dev/null; then
-            echo "Welcome screen rendered"
-            return
-        fi
-        sleep 1
-    done
-    adb logcat -d -b crash
-    return 1
+    local pid
+    pid=$(adb shell pidof -s "$isolated" | tr -d '\r')
+    adb forward tcp:9222 "localabstract:webview_devtools_remote_$pid"
+    if ! node android/check-screen.cjs "$1"; then
+        adb logcat -d -b crash
+        adb logcat -d -s chromium:I | tail -40
+        return 1
+    fi
+    adb forward --remove tcp:9222
 }
-
-check_welcome
+check_screen welcome
 adb shell am force-stop "$isolated"
-check_welcome
+check_screen diary

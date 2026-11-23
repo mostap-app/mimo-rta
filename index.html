@@ -369,7 +369,7 @@ function syncPilotGoals(){
       ym(METRIKA_ID,"reachGoal",name,{},()=>{
         try{
           const latest=pilotState();
-          if(latest?.day===p.day){
+          if(latest&&latest.day===p.day){
             latest.goals[name]=true;
             localStorage.setItem(PILOT_KEY,JSON.stringify(latest));
           }
@@ -457,7 +457,7 @@ function save(data=S,restore=false){
   if(unreadableDiary&&!restore)return false;
   try{
     const current=localStorage.getItem(DIARY_KEY);
-    if(current!==(storedDiary??null)){
+    if(current!==(storedDiary==null?null:storedDiary)){
       showStorageMessage("Дневник изменился в другой вкладке. Сохраните копию с этой вкладки, затем обновите страницу.");
       return false;
     }
@@ -490,7 +490,7 @@ async function downloadDiary(json){
   const name=`mimo-rta-${dk()}.json`, blob=new Blob([json],{type:"application/json"});
   const file=new File([blob],name,{type:blob.type});
   try{
-    if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file]});return}
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});return}
   }catch(e){if(e.name==="AbortError")return}
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);a.download=name;a.click();
@@ -590,7 +590,7 @@ function renderDiary(){
    </div>`}).join("")}
    ${isToday?goalCard():""}
    ${waterCard(day)}
-   ${mimoList.length?`<div class="sheet"><h2>Пронесли мимо рта</h2>${mimoList.map(o=>`<div class="line mimo-row"><div class="e" aria-hidden="true">${o.ids?.length&&dish(o.ids[0])?pic(dish(o.ids[0])):""}</div><div class="t"><b>−${fmt(o.k)} ккал</b><div class="kcal">${new Date(o.d).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})} · ${fmt(o.p)} ₽ сэкономлено</div></div><button class="del" data-delm="${o.d}" aria-label="Удалить заказ">${IC.X}</button></div>`).join("")}</div>`:""}`;
+   ${mimoList.length?`<div class="sheet"><h2>Пронесли мимо рта</h2>${mimoList.map(o=>`<div class="line mimo-row"><div class="e" aria-hidden="true">${o.ids&&o.ids.length&&dish(o.ids[0])?pic(dish(o.ids[0])):""}</div><div class="t"><b>−${fmt(o.k)} ккал</b><div class="kcal">${new Date(o.d).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})} · ${fmt(o.p)} ₽ сэкономлено</div></div><button class="del" data-delm="${o.d}" aria-label="Удалить заказ">${IC.X}</button></div>`).join("")}</div>`:""}`;
 }
 
 const nz=t=>String(t).toLowerCase().replace(/ё/g,"е");
@@ -1040,7 +1040,7 @@ async function recognizeLabel(img,ocrW){
     if(r.k100&&extra.k100&&r.k100!==extra.k100)r.k100=0;
     else if(r.portion!==extra.portion){
       r.k100=r.portion?r.k100:extra.k100;
-    }else r.k100 ||= extra.k100;
+    }else if(!r.k100)r.k100=extra.k100;
     if(extra.g&&!r.weights.includes(extra.g))r.weights.push(extra.g);
     r.n=betterLabelName(r.n,guessName(second));
   }
@@ -1053,7 +1053,7 @@ async function startScan(file,more=false){
   if(previous)addMeal=+$("#ml").value;
   stopLabel(scan);
   if(scan&&scan.url)URL.revokeObjectURL(scan.url);
-  scan={url:URL.createObjectURL(file),status:"Считываем данные с упаковки…",n:previous?$("#fn").value.trim():"",k100:previous?+$("#k100").value||"":"",g:previous?+$("#grams").value||"":"",src:"",code:previous?.code||"",weights:previous?.weights?.slice()||[],edited:{...previous?.edited}};pick=null;go("scan");
+  scan={url:URL.createObjectURL(file),status:"Считываем данные с упаковки…",n:previous?$("#fn").value.trim():"",k100:previous?+$("#k100").value||"":"",g:previous?+$("#grams").value||"":"",src:"",code:previous&&previous.code||"",weights:previous&&previous.weights?previous.weights.slice():[],edited:{...(previous&&previous.edited)}};pick=null;go("scan");
   const job=scan;
   // Не блокируем ручной ввод, даже если движок OCR на устройстве завис.
   const watchdog=setTimeout(()=>{
@@ -1080,7 +1080,7 @@ async function startScan(file,more=false){
       if(job.cancelled)return;
       if(product){
         if(!job.edited.fn)job.n=betterLabelName(job.n,product.n);
-        if(!job.edited.k100)job.k100 ||= product.k100||"";
+        if(!job.edited.k100&&!job.k100)job.k100=product.k100||"";
         if(!mine&&product.g&&!job.weights.includes(product.g))job.weights.push(product.g);
       }
     }
@@ -1257,7 +1257,7 @@ function renderTrack(){
    </div>
    <button class="ghost" data-go="diary">В дневник</button>
    <div class="sheet"><ol class="steps">${STEPS.map(s=>`<li><span class="dot"></span>${s}</li>`).join("")}</ol></div>
-   <div class="sheet"><div class="tot"><span class="muted">В заказе</span>${order.ids?`<span class="thumbs">${order.ids.map(id=>PH[id]?`<img src="${PH[id]}" alt="">`:(dish(id)?.e||"🍽️")).join("")}</span>`:`<span>${esc(order.first)}</span>`}</div>
+   <div class="sheet"><div class="tot"><span class="muted">В заказе</span>${order.ids?`<span class="thumbs">${order.ids.map(id=>PH[id]?`<img src="${PH[id]}" alt="">`:((dish(id)||{}).e||"🍽️")).join("")}</span>`:`<span>${esc(order.first)}</span>`}</div>
    <div class="tot"><span class="muted">Калорийность</span><span>${fmt(order.k)} ккал</span></div></div>`;
   updateTrack();
   animateCourier();
@@ -1269,15 +1269,16 @@ function animateCourier(){
     const [x,y]=COURIER_ROUTE[i], [prevX,prevY]=COURIER_ROUTE[i-1];
     distances.push(distances[i-1]+Math.hypot(x-prevX,y-prevY));
   }
-  const total=distances.at(-1);
+  const total=distances[distances.length-1];
   const frames=COURIER_ROUTE.map(([x,y],i)=>({
     transform:`translate(${x}px, ${y}px)`,
     offset:ROUTE_START+(ROUTE_END-ROUTE_START)*distances[i]/total
   }));
   frames.unshift({...frames[0],offset:0});
-  frames.push({...frames.at(-1),offset:1});
+  frames.push({...frames[frames.length-1],offset:1});
   const duration=TRIP_SEC*1000;
-  const animation=$("#courierMarker").animate?.(frames,{duration,easing:"linear",fill:"both"});
+  const marker=$("#courierMarker");
+  const animation=marker.animate&&marker.animate(frames,{duration,easing:"linear",fill:"both"});
   if(animation)animation.currentTime=progress()*duration;
 }
 
@@ -1341,7 +1342,7 @@ function renderWeek(N){
   const label=new Intl.DateTimeFormat("ru-RU",{weekday:"short",day:"2-digit",month:"2-digit"});
   const days=Array.from({length:7},()=>{
     const key=dk(date);
-    const day={key,label:label.format(date),eaten:eatenOn(key),saved:mimoOn(key),logged:!!S.log[key]?.length};
+    const day={key,label:label.format(date),eaten:eatenOn(key),saved:mimoOn(key),logged:!!(S.log[key]&&S.log[key].length)};
     date.setDate(date.getDate()-1);
     return day;
   });
@@ -1393,7 +1394,7 @@ function renderMe(){
 
 /* ---------- События ---------- */
 document.addEventListener("change",e=>{
-  const f=e.target.files?.[0];if(!f)return;
+  const f=e.target.files&&e.target.files[0];if(!f)return;
   e.target.value="";
   if(e.target.id==="restoreIn")return restoreDiary(f);
   if(e.target.id==="photoIn")return startPhoto(f);
@@ -1434,7 +1435,8 @@ document.addEventListener("click",e=>{
     render();
     if(e.detail===0){
       const control=b.dataset.dec&&count>0?"dec":"add";
-      (document.querySelector(`[data-${control}="${id}"]`)||document.querySelector(".step button, .dish-step button"))?.focus({preventScroll:true});
+      const nextButton=document.querySelector(`[data-${control}="${id}"]`)||document.querySelector(".step button, .dish-step button");
+      if(nextButton)nextButton.focus({preventScroll:true});
     }
     return;
   }
