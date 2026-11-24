@@ -2,7 +2,7 @@
 const { setTimeout: delay } = require('node:timers/promises');
 const firstLaunch = process.argv[2] === 'welcome';
 
-async function check(selector, { click = false, fields = {}, text = null } = {}) {
+async function check(selector, { next = null, fields = {}, text = null } = {}) {
     let last = '';
     for (let attempt = 0; attempt < 30; attempt++) {
         let socket;
@@ -17,16 +17,20 @@ async function check(selector, { click = false, fields = {}, text = null } = {})
                 socket.onerror = reject;
             });
             const expression = `(() => {
+                const visible = element => element && element.getBoundingClientRect().height && getComputedStyle(element).visibility === "visible";
+                const next = ${JSON.stringify(next)};
+                if (next && visible(document.querySelector(next))) return true;
                 const button = document.querySelector(${JSON.stringify(selector)});
-                if (button && button.getBoundingClientRect().height && getComputedStyle(button).visibility === "visible") {
+                if (visible(button)) {
                     if (${JSON.stringify(text)} !== null && !button.textContent.includes(${JSON.stringify(text)})) return button.textContent;
                     for (const [key, value] of Object.entries(${JSON.stringify(fields)})) {
                         const field = document.querySelector(key);
                         field.value = value;
                         field.dispatchEvent(new Event("input", {bubbles:true}));
                     }
-                    if (${click}) button.click();
-                    return true;
+                    if (!next) return true;
+                    button.click();
+                    return !!visible(document.querySelector(next));
                 }
                 return {
                     title: document.title, ready: document.readyState, body: document.body && document.body.className,
@@ -62,11 +66,13 @@ async function check(selector, { click = false, fields = {}, text = null } = {})
 }
 async function run() {
     if (firstLaunch) {
-        await check('#helloGo', {click:true});
-        await check('#skipProfile', {click:true});
-        await check('#diarySearch', {click:true});
-        await check('[data-pick="custom"]', {click:true});
-        await check('#addCustom', {click:true, fields:{'#cn':'Тестовое яблоко', '#ck':'173'}});
+        await check('#helloGo', {next:'#saveProfile'});
+        await check('#saveProfile', {next:'.plan .note', fields:{'#w':'65', '#goal':'2', '#tw':'70'}});
+        await check('.plan .note', {text:'темпу набора веса — 0,35 кг в неделю. До цели примерно 14 недель.'});
+        await check('#view > button.cta[data-go="diary"]', {next:'#diarySearch'});
+        await check('#diarySearch', {next:'[data-pick="custom"]'});
+        await check('[data-pick="custom"]', {next:'#addCustom'});
+        await check('#addCustom', {next:'[data-edit="0"]', fields:{'#cn':'Тестовое яблоко', '#ck':'173'}});
     }
     await check('#diarySearch');
     await check('.day-summary-total strong', {text:'173'});
