@@ -2,9 +2,9 @@
 const { setTimeout: delay } = require('node:timers/promises');
 const firstLaunch = process.argv[2] === 'welcome';
 
-async function check(selector, { next = null, fields = {}, text = null } = {}) {
+async function check(selector, { next = null, fields = {}, text = null, value = null, label = null } = {}) {
     let last = '';
-    for (let attempt = 0; attempt < 30; attempt++) {
+    for (let attempt = 0; attempt < 50; attempt++) {
         let socket;
         try {
             const response = await fetch('http://127.0.0.1:9222/json/list');
@@ -21,8 +21,32 @@ async function check(selector, { next = null, fields = {}, text = null } = {}) {
                 const next = ${JSON.stringify(next)};
                 if (next && visible(document.querySelector(next))) return true;
                 const button = document.querySelector(${JSON.stringify(selector)});
+                const label = ${JSON.stringify(label)};
+                if (label && button) {
+                    const tag = button.id;
+                    if (window.lastTestLabel === tag) return true;
+                    const image = document.createElement("canvas");
+                    image.width = 1000;
+                    image.height = 520;
+                    const ctx = image.getContext("2d");
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(0, 0, image.width, image.height);
+                    ctx.fillStyle = "black";
+                    label.forEach(([line, font], i) => {
+                        ctx.font = font + "px sans-serif";
+                        ctx.fillText(line, 50, 105 + 85 * i);
+                    });
+                    const bytes = Uint8Array.from(atob(image.toDataURL().split(",")[1]), c => c.charCodeAt(0));
+                    const transfer = new DataTransfer();
+                    transfer.items.add(new File([bytes], tag + ".png", {type:"image/png"}));
+                    window.lastTestLabel = tag;
+                    button.files = transfer.files;
+                    button.dispatchEvent(new Event("change", {bubbles:true}));
+                    return true;
+                }
                 if (visible(button)) {
                     if (${JSON.stringify(text)} !== null && !button.textContent.includes(${JSON.stringify(text)})) return button.textContent;
+                    if (${JSON.stringify(value)} !== null && (document.querySelector("#stopScan") || button.value !== ${JSON.stringify(value)})) return button.value;
                     for (const [key, value] of Object.entries(${JSON.stringify(fields)})) {
                         const field = document.querySelector(key);
                         field.value = value;
@@ -70,12 +94,21 @@ async function run() {
         await check('#saveProfile', {next:'.plan .note', fields:{'#w':'65', '#goal':'2', '#tw':'70'}});
         await check('.plan .note', {text:'темпу набора веса — 0,35 кг в неделю. До цели примерно 14 недель.'});
         await check('#view > button.cta[data-go="diary"]', {next:'#diarySearch'});
+        await check('#scanIn', {label:[['СМЕТАНА',80], ['15%',64], ['300 г',48]]});
+        await check('#fn', {value:'Сметана 15%'});
+        await check('#scanMore', {label:[['Пищевая ценность на 100 г',52], ['Энергетическая ценность 160 ккал',48], ['Масса нетто 300 г',56]]});
+        await check('#k100', {value:'160'});
+        await check('#fn', {value:'Сметана 15%'});
+        await check('#grams', {value:''});
+        await check('#addScan', {next:'#diarySearch', fields:{'#grams':'50'}});
+        await check('.day-summary-total strong', {text:'80'});
         await check('#diarySearch', {next:'[data-pick="custom"]'});
         await check('[data-pick="custom"]', {next:'#addCustom'});
-        await check('#addCustom', {next:'[data-edit="0"]', fields:{'#cn':'Тестовое яблоко', '#ck':'173'}});
+        await check('#addCustom', {next:'[data-edit="1"]', fields:{'#cn':'Тестовое яблоко', '#ck':'173'}});
     }
     await check('#diarySearch');
-    await check('.day-summary-total strong', {text:'173'});
-    await check('[data-edit="0"]', {text:'Тестовое яблоко'});
+    await check('.day-summary-total strong', {text:'253'});
+    await check('[data-edit="0"]', {text:'Сметана 15%'});
+    await check('[data-edit="1"]', {text:'Тестовое яблоко'});
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });
