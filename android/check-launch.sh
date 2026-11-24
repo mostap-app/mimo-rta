@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 regular=app.mostap.mimorta.preview
-isolated="$regular.scanqa"
+isolated="$regular.scanfast"
 activity="$regular.DiaryActivity"
 apk=android/app/build/outputs/apk/debug/app-debug.apk
 

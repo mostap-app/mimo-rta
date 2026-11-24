@@ -13,8 +13,8 @@ android {
     buildTypes {
         debug {
             if (providers.gradleProperty('isolatedTest').isPresent()) {
-                applicationIdSuffix '.scanqa'
-                manifestPlaceholders.appLabel = 'Мимо рта · Скан'
+                applicationIdSuffix '.scanfast'
+                manifestPlaceholders.appLabel = 'Мимо рта · Скан 2'
             }
         }
     }

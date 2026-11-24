@@ -26,19 +26,21 @@ async function check(selector, { next = null, fields = {}, text = null, value = 
                     const tag = button.id;
                     if (window.lastTestLabel === tag) return true;
                     const image = document.createElement("canvas");
-                    image.width = 1000;
-                    image.height = 520;
+                    image.width = 3000;
+                    image.height = 4000;
                     const ctx = image.getContext("2d");
                     ctx.fillStyle = "white";
                     ctx.fillRect(0, 0, image.width, image.height);
+                    ctx.translate(0, 1050);
+                    ctx.scale(3, 3);
                     ctx.fillStyle = "black";
                     label.forEach(([line, font], i) => {
                         ctx.font = font + "px sans-serif";
                         ctx.fillText(line, 50, 105 + 85 * i);
                     });
-                    const bytes = Uint8Array.from(atob(image.toDataURL().split(",")[1]), c => c.charCodeAt(0));
+                    const bytes = Uint8Array.from(atob(image.toDataURL("image/jpeg", 0.84).split(",")[1]), c => c.charCodeAt(0));
                     const transfer = new DataTransfer();
-                    transfer.items.add(new File([bytes], tag + ".png", {type:"image/png"}));
+                    transfer.items.add(new File([bytes], tag + ".jpg", {type:"image/jpeg"}));
                     window.lastTestLabel = tag;
                     button.files = transfer.files;
                     button.dispatchEvent(new Event("change", {bubbles:true}));
@@ -46,7 +48,7 @@ async function check(selector, { next = null, fields = {}, text = null, value = 
                 }
                 if (visible(button)) {
                     if (${JSON.stringify(text)} !== null && !button.textContent.includes(${JSON.stringify(text)})) return button.textContent;
-                    if (${JSON.stringify(value)} !== null && (document.querySelector("#stopScan") || button.value !== ${JSON.stringify(value)})) return button.value;
+                    if (${JSON.stringify(value)} !== null && (!document.querySelector("#stopScan")?.hidden || button.value !== ${JSON.stringify(value)})) return button.value;
                     for (const [key, value] of Object.entries(${JSON.stringify(fields)})) {
                         const field = document.querySelector(key);
                         field.value = value;
@@ -96,6 +98,7 @@ async function run() {
         await check('#view > button.cta[data-go="diary"]', {next:'#diarySearch'});
         await check('#scanIn', {label:[['СМЕТАНА',80], ['15%',64], ['300 г',48]]});
         await check('#fn', {value:'Сметана 15%'});
+        await check('#k100', {value:''});
         await check('#scanMore', {label:[['Пищевая ценность на 100 г',52], ['Энергетическая ценность 160 ккал',48], ['Масса нетто 300 г',56]]});
         await check('#k100', {value:'160'});
         await check('#fn', {value:'Сметана 15%'});

@@ -214,6 +214,7 @@ textarea.search{font:inherit;font-size:16px;resize:none;color:inherit}
 .photo-btn svg{width:22px;height:22px}
 .photo-btn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
 .shot{width:100%;max-height:300px;object-fit:cover;border-radius:20px;margin-top:12px;display:block;background:var(--plate)}
+.status[hidden],#scanWeights[hidden],#stopScan[hidden]{display:none}
 .status{display:flex;align-items:center;gap:10px;margin-top:14px;color:var(--muted);font-weight:600}
 .spin{width:18px;height:18px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:sp 1s linear infinite;flex:none}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -987,16 +988,16 @@ function applyFoodHistory(){
 applyFoodHistory();
 const loadScript=(()=>{const c={};return src=>c[src]||(c[src]=new Promise((ok,no)=>{const el=document.createElement("script");el.src=src;el.onload=ok;el.onerror=()=>{delete c[src];no(new Error("Нет связи, не загрузилось распознавание"))};document.head.appendChild(el)}))})();
 function toCanvas(img,max){const k=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement("canvas");c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);c.getContext("2d").drawImage(img,0,0,c.width,c.height);return c}
-function labelCanvas(img, crop=false, soften=false){
-  const x=crop?Math.round(img.naturalWidth*.10):0,y=crop?Math.round(img.naturalHeight*.16):0;
-  const width=img.naturalWidth-2*x,height=crop?Math.round(img.naturalHeight*.63):img.naturalHeight;
-  const scale=Math.min(3,1900/Math.max(width,height));
+function labelCanvas(img,[left,top,w,h],max,blur){
+  const x=Math.round(img.naturalWidth*left),y=Math.round(img.naturalHeight*top);
+  const width=Math.round(img.naturalWidth*w),height=Math.round(img.naturalHeight*h);
+  const scale=Math.min(3,max/Math.max(width,height));
   const canvas=document.createElement("canvas");
   canvas.width=Math.max(1,Math.round(width*scale));
   canvas.height=Math.max(1,Math.round(height*scale));
   const ctx=canvas.getContext("2d",{willReadFrequently:true});
   ctx.imageSmoothingQuality="high";
-  if(soften)ctx.filter="blur(3px)";
+  if(blur)ctx.filter="blur("+blur+"px)";
   ctx.drawImage(img,x,y,width,height,0,0,canvas.width,canvas.height);
   const image=ctx.getImageData(0,0,canvas.width,canvas.height),pixels=image.data;
   const histogram=new Uint32Array(256);
@@ -1013,33 +1014,30 @@ function labelCanvas(img, crop=false, soften=false){
   ctx.putImageData(image,0,0);
   return canvas;
 }
-function gs1ProductCode(text){
-  // Only a validated GTIN goes to the catalogue. The unit serial stays on the device.
-  const value=text.match(/^(?:\]d2)?(?:\(01\)|\x1d?01)(\d{14})(?=$|[0-9(\x1d])/)?.[1];
-  if(!value||!+value)return "";
-  const sum=Array.from(value,Number).reduce((total,digit,i)=>total+digit*(i%2?1:3),0);
-  if(sum%10)return "";
-  return value.startsWith("000000")?value.slice(-8):value.startsWith("0")?value.slice(1):value;
-}
-function readBarcode(cv){
-  try{
-    const Z=window.ZXing,h=new Map();
-    h.set(Z.DecodeHintType.POSSIBLE_FORMATS,[Z.BarcodeFormat.EAN_13,Z.BarcodeFormat.EAN_8,Z.BarcodeFormat.UPC_A,Z.BarcodeFormat.UPC_E,Z.BarcodeFormat.DATA_MATRIX]);
-    h.set(Z.DecodeHintType.TRY_HARDER,true);
-    const reader=new Z.MultiFormatReader();
-    reader.setHints(h);
-    const result=reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(cv))));
-    return result.getBarcodeFormat()===Z.BarcodeFormat.DATA_MATRIX?gs1ProductCode(result.getText()):result.getText();
-  }catch(e){return ""}
-}
-async function readPackageCode(img,job){
-  await loadScript("scan/zxing.min.js");
-  if(job.cancelled)return "";
-  return readBarcode(toCanvas(img,1600))||readBarcode(toCanvas(img,900));
+function readPackageCode(img,job){
+  return new Promise(resolve=>{
+    let worker;
+    const finish=code=>{
+      clearTimeout(deadline);
+      worker?.terminate();
+      worker=null;
+      resolve(code);
+    };
+    const deadline=setTimeout(()=>finish(""),2200);
+    try{
+      worker=new Worker("scan/barcode-worker.js");
+      worker.onmessage=event=>finish(event.data);
+      worker.onerror=()=>finish("");
+      job.stopped.then(()=>finish(""));
+      const frame=toCanvas(img,1150),{width,height}=frame;
+      const pixels=frame.getContext("2d").getImageData(0,0,width,height).data.buffer;
+      worker.postMessage({width,height,pixels},[pixels]);
+    }catch{finish("")}
+  });
 }
 function parseQty(s){const m=String(s).toLowerCase().replace(/(\d),(\d)/g,"$1.$2").match(/(\d+(?:\.\d+)?)\s*(кг|kg|гр|г|g|мл|ml|л|l)(?![a-zа-я])/);if(!m)return 0;let v=+m[1];if(/^(кг|kg|л|l)$/.test(m[2]))v*=1000;return v>0&&v<=5000?Math.round(v):0}
-async function offLookup(code){
-  const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),5500);
+async function offLookup(code,ctl){
+  const t=setTimeout(()=>ctl.abort(),3600);
   try{
     const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,product_name_ru,generic_name_ru,brands,quantity,nutriments`,{signal:ctl.signal});
     const j=await r.json();if(j.status!==1||!j.product)return null;const p=j.product,nu=p.nutriments||{};
@@ -1086,45 +1084,68 @@ function parseLabel(raw){
   const g=net?parseQty(net[1]):serving&&serving<=5000?serving:standalone&&!perHundred?parseQty(standalone[1]):0;
   return {k100:k>0&&k<=950?Math.round(k*10)/10:0,g};
 }
+let labelEngine;
+function prepareLabel(){
+  if(!labelEngine){
+    const base=new URL("scan/",location.href).href;
+    labelEngine=loadScript("scan/tesseract.min.js")
+      .then(()=>Tesseract.createWorker("rus",1,{workerPath:base+"worker.min.js",corePath:base,langPath:base.slice(0,-1),gzip:!window.MimoAndroidSpeech}))
+      .catch(error=>{labelEngine=null;throw error});
+  }
+  return labelEngine;
+}
 function stopLabel(job){
-  if(!job)return;
+  if(!job||job.cancelled)return;
   job.cancelled=true;
+  job.cancel();
+  job.lookup?.abort();
   if(job.worker){
+    labelEngine=null;
     job.worker.terminate().catch(()=>{});
     job.worker=null;
   }
 }
-async function readLabel(img,job){
-  await loadScript("scan/tesseract.min.js");
-  if(job.cancelled)return null;
-  const base=new URL("scan/",location.href).href;
-  const worker=await Tesseract.createWorker("rus",1,{workerPath:base+"worker.min.js",corePath:base,langPath:base.replace(/\/$/,""),gzip:!window.MimoAndroidSpeech});
-  if(job.cancelled){await worker.terminate();return null}
+async function readLabel(img,job,report){
+  const worker=await Promise.race([prepareLabel(),job.stopped]);
+  if(!worker||job.cancelled)return;
   job.worker=worker;
   try{
-    const result={n:"",k100:0,weights:[],conflict:false};
-    for(const [mode,crop,soften] of [["11",false,false],["6",true,false],["11",false,true]]){
-      if(job.cancelled)break;
+    const passes=[["11",[0,0,1,1],1300,0],["11",[.08,.24,.84,.48],1050,1],["11",[0,0,1,1],1350,2]];
+    for(const [mode,box,max,blur] of passes){
+      if(job.cancelled)return;
       await worker.setParameters({tessedit_pageseg_mode:mode});
-      const {data}=await worker.recognize(labelCanvas(img,crop,soften));
-      const value=parseLabel(data.text||"");
-      result.n=betterLabelName(result.n,guessName(data.text||""));
-      if(result.k100&&value.k100&&result.k100!==value.k100)result.conflict=true;
-      result.k100=result.k100||value.k100;
-      if(value.g&&!result.weights.includes(value.g))result.weights.push(value.g);
-      if(result.n&&result.k100)break;
+      if(job.cancelled)return;
+      const result=await Promise.race([worker.recognize(labelCanvas(img,box,max,blur)),job.stopped]);
+      if(!result||job.cancelled)return;
+      const raw=result.data.text||"",label=parseLabel(raw);
+      label.n=guessName(raw);
+      await report(label);
+      if(job.cancelled||label.k100||(label.n&&(job.k100||!/ценност|ккал|кдж|пищев|углевод/i.test(raw))))return;
     }
-    return result;
-  }finally{
-    if(job.worker===worker){job.worker=null;await worker.terminate()}
-  }
+  }finally{job.worker=null}
 }
 function scanHint(job){
   if(job.conflict&&!job.edited.k100)return "Калорийность на фото различается. Сверьте значение на 100 г с упаковкой.";
-  const missing=[];
-  if(!job.n)missing.push("Название не прочиталось. Снимите лицевую сторону крупнее.");
-  if(!job.k100)missing.push("Сфотографируйте таблицу «Пищевая ценность» с указанием ккал на 100 г.");
-  return missing.join(" ")||"Проверьте данные и укажите, сколько съели.";
+  if(job.n&&job.k100)return "Проверьте данные и укажите, сколько съели.";
+  if(job.n)return "Сфотографируйте таблицу «Пищевая ценность» с указанием ккал на 100 г.";
+  if(job.k100)return "Калорийность прочитана. Добавьте фото лицевой стороны или впишите название.";
+  return "Не удалось прочитать упаковку. Снимите крупно название, штрихкод или таблицу «Пищевая ценность».";
+}
+function finishScan(job,message=scanHint(job)){
+  clearTimeout(job.deadline);
+  job.status="";
+  job.src=message;
+  if(scan===job&&tab==="scan")updateScan();
+}
+function mergeScanLabel(job,label){
+  if(!job.edited.fn)job.n=betterLabelName(job.n,label.n);
+  if(label.k100&&!job.edited.k100){
+    job.conflict=job.conflict||!!(job.labelKcal&&job.labelKcal!==label.k100);
+    if(!job.conflict)job.labelKcal=label.k100;
+    job.k100=job.conflict?"":job.labelKcal;
+  }
+  if(label.g&&!job.weights.includes(label.g))job.weights.push(label.g);
+  updateScan();
 }
 async function startScan(file,more=false){
   const previous=more?scan:null;
@@ -1133,57 +1154,54 @@ async function startScan(file,more=false){
   else if(tab!=="add")addMeal=suggestedMeal();
   stopLabel(scan);
   if(scan?.url)URL.revokeObjectURL(scan.url);
+  let cancel;
+  const stopped=new Promise(resolve=>{cancel=resolve});
   const job=scan={
     url:URL.createObjectURL(file),status:"Считываем данные с упаковки…",
     n:previous?$("#fn").value.trim():"",k100:previous?+$("#k100").value||"":"",
     g:previous?$("#grams").value:"",src:"",code:previous?.code||"",
     weights:previous?.weights?.slice()||[],edited:{...previous?.edited},
-    labelKcal:previous?.labelKcal||0,conflict:previous?.conflict||false,
+    labelKcal:previous?.labelKcal||0,conflict:previous?.conflict||false,stopped,cancel,
   };
   pick=null;go("scan");
-  const watchdog=setTimeout(()=>{
-    if(scan!==job||!job.status)return;
+  job.deadline=setTimeout(()=>{
+    if(job.cancelled)return;
     stopLabel(job);
-    job.status="";
-    job.src="Сканирование заняло слишком много времени. Попробуйте снять надпись или штрихкод крупнее.";
-    if(tab==="scan")renderScan();
-  },20000);
+    finishScan(job);
+  },13000);
   try{
     const img=new Image();img.src=job.url;await img.decode();
     if(job.cancelled)return;
-    const labelTask=readLabel(img,job).catch(()=>null);
-    const code=await readPackageCode(img,job).catch(()=>"");
-    if(job.cancelled)return;
-    if(code&&job.code&&job.code.replace(/^0+/,"")!==code.replace(/^0+/,"")){
-      stopLabel(job);
-      job.src="На фото код другого товара. Сфотографируйте ту же упаковку.";
-      return;
-    }
-    let remembered,lookupTask=null;
-    if(code){
+    const codeTask=readPackageCode(img,job).then(code=>{
+      if(job.cancelled||!code)return "";
+      if(job.code&&job.code.replace(/^0+/,"")!==code.replace(/^0+/,"")){
+        stopLabel(job);
+        finishScan(job,"На фото код другого товара. Сфотографируйте ту же упаковку.");
+        return "";
+      }
       job.code=code;
-      remembered=(S.my||[]).find(x=>x.code===code);
-      if(!remembered)lookupTask=offLookup(code).catch(()=>null);
-    }
-    const [label,product]=await Promise.all([labelTask,remembered||lookupTask]);
-    if(job.cancelled)return;
-    if(!job.edited.fn)job.n=betterLabelName(betterLabelName(job.n,product?.n),label?.n);
-    if(!job.edited.k100){
-      job.conflict=job.conflict||!!label?.conflict||!!(job.labelKcal&&label?.k100&&job.labelKcal!==label.k100);
-      if(!job.conflict)job.labelKcal=job.labelKcal||label?.k100||0;
-      job.k100=job.conflict?"":job.labelKcal||job.k100||product?.k100||"";
-    }
-    job.weights=[...new Set([...job.weights,...(label?.weights||[]),...(!remembered&&product?.g?[product.g]:[])])];
-    job.src=scanHint(job);
-  }catch(e){
-    if(!job.cancelled)job.src="Не получилось открыть фото. Попробуйте сделать снимок ещё раз.";
-  }finally{
-    clearTimeout(watchdog);
-    if(job.status){
-      job.status="";
-      if(scan===job&&tab==="scan")renderScan();
-    }
-  }
+      return code;
+    });
+    const labelTask=readLabel(img,job,async label=>{
+      await codeTask;
+      if(!job.cancelled)mergeScanLabel(job,label);
+    }).catch(()=>{});
+    const lookupTask=codeTask.then(async code=>{
+      if(!code||job.cancelled)return;
+      const saved=(S.my||[]).find(x=>x.code===code);
+      job.lookup=new AbortController();
+      const product=saved||await offLookup(code,job.lookup).catch(()=>null);
+      if(!product||job.cancelled)return;
+      if(!job.edited.fn)job.n=betterLabelName(job.n,product.n);
+      if(!job.edited.k100&&!job.k100&&!job.conflict)job.k100=product.k100||"";
+      if(!saved&&product.g&&!job.weights.includes(product.g))job.weights.push(product.g);
+      updateScan();
+    });
+    await Promise.race([Promise.all([labelTask,lookupTask]),job.stopped]);
+    if(!job.cancelled)finishScan(job);
+  }catch{
+    if(!job.cancelled)finishScan(job,"Не получилось открыть фото. Попробуйте сделать снимок ещё раз.");
+  }finally{clearTimeout(job.deadline)}
 }
 function renderScan(){
   if(!scan){tab="diary";return renderDiary()}
@@ -1191,17 +1209,34 @@ function renderScan(){
    <button class="back" data-go="add">← Назад</button>
    <h1>Продукт с упаковки</h1>
    <img class="shot" src="${scan.url}" alt="Фото упаковки">
-   ${scan.status ? '<div class="status" role="status"><span class="spin"></span>'+esc(scan.status)+'</div><button class="ghost" id="stopScan">Ввести данные вручную</button>' : '<p class="note">'+esc(scan.src)+'</p>'}
-   <label class="photo-btn">${scan.n&&!scan.k100?"Сфотографировать пищевую ценность":"Добавить фото другой стороны"}<input type="file" accept="image/*" id="scanMore" style="position:absolute;width:1px;height:1px;opacity:0"></label>
+   <div class="status" id="scanProgress" role="status"><span class="spin"></span>Считываем данные с упаковки…</div>
+   <button class="ghost" id="stopScan">Ввести данные вручную</button>
+   <p class="note" id="scanHint" aria-live="polite"></p>
+   <label class="photo-btn"><span id="scanMoreLabel">Добавить фото другой стороны</span><input type="file" accept="image/*" id="scanMore" style="position:absolute;width:1px;height:1px;opacity:0"></label>
    <div class="field"><label for="fn">Название</label><input id="fn" value="${esc(scan.n)}" placeholder="Как называется продукт? Например, йогурт клубничный"></div>
    <div class="two"><div class="field"><label for="k100">Ккал на 100 г</label><input id="k100" type="number" inputmode="decimal" min="0" value="${scan.k100}" placeholder="с упаковки"></div>
    <div class="field"><label for="grams">Сколько грамм</label><input id="grams" type="number" inputmode="numeric" min="1" value="${esc(scan.g)}"></div></div>
-   ${scan.weights.length?`<div class="quick" aria-label="Вес с этикетки">${scan.weights.map(g=>`<button data-g="${g}">${fmt(g)} г</button>`).join("")}</div>`:""}
-   <p class="note">${scan.weights.length>1?"Цифры на фото разошлись. Сверьте вес порции и выберите значение или введите порцию.":scan.weights.length?"Выберите вес с этикетки, если съели столько, или введите свою порцию.":"Укажите вес съеденной порции."}</p>
-   <div class="bigk" id="kc">${scan.k100&&scan.g?fmt(scan.k100*scan.g/100)+" ккал":"—"}</div>
+   <div class="quick" id="scanWeights" aria-label="Вес с этикетки"></div>
+   <p class="note" id="scanWeightHint"></p>
+   <div class="bigk" id="kc"></div>
    <div class="field"><label for="ml">Приём пищи</label><select id="ml">${MEALS.map((m,i)=>`<option value="${i}" ${addMeal===i?"selected":""}>${m}</option>`).join("")}</select></div>
    <button class="cta" id="addScan">Добавить в дневник</button>
    <p class="note">Совет: лучше всего фотографировать штрихкод крупно, а если его нет в базе, то таблицу «Пищевая ценность».</p>`;
+  updateScan();
+}
+function updateScan(){
+  if(!scan.edited.fn)$("#fn").value=scan.n;
+  if(!scan.edited.k100)$("#k100").value=scan.k100;
+  $("#scanProgress").hidden=$("#stopScan").hidden=!scan.status;
+  const message=scan.src||(scan.n||scan.k100?scanHint(scan):"");
+  $("#scanHint").textContent=message;
+  $("#scanHint").hidden=!message;
+  $("#scanMoreLabel").textContent=scan.n&&!scan.k100?"Сфотографировать пищевую ценность":"Добавить фото другой стороны";
+  const weights=$("#scanWeights");
+  weights.innerHTML=scan.weights.map(g=>`<button data-g="${g}">${fmt(g)} г</button>`).join("");
+  weights.hidden=!scan.weights.length;
+  $("#scanWeightHint").textContent=scan.weights.length>1?"Сверьте вес на этикетке и укажите, сколько съели.":scan.weights.length?"Выберите вес с этикетки или введите свою порцию.":"Укажите вес съеденной порции.";
+  $("#kc").textContent=scan.k100&&scan.g?fmt(scan.k100*scan.g/100)+" ккал":"—";
 }
 
 const FOOD_WORDS="паст макарон спагет лапш рамен удон йогурт кефир молок творог сыр сырок орех арахис миндал фундук кешью фисташ семечк хлеб батон багет лаваш тортил печень шоколад конфет батончик вафл пряник зефир мармелад халв сок нектар вод чай кофе какао напит лимонад квас морс компот смузи коктейл ряженк снежок айран простокваш сливк сметан масл майонез кетчуп соус колбас сосиск сардельк ветчин бекон грудинк курин куриц цыпл индейк говядин свинин телятин баранин мяс фарш котлет тефтел фрикадел наггетс рыб тунец тунц лосос сёмг семг форел сельд скумбри кальмар кревет икр крабов паштет хумус брынз моцарел пармезан фета салат суп борщ щи солянк каш гречк рис овсян хлоп мюсли гранол плов пельмен вареник блин сырник омлет яйц торт пирож пирог булочк круассан кекс маффин мороженое пломбир десерт пудинг мёд мед варень джем повидл фрукт яблок груш банан апельсин мандарин ягод клубник малин вишн черник овощ томат помидор огур картоф чипс сухар крекер хлебц пицц бургер сэндвич ролл шаурм нут фасол чечевиц горох кукуруз гриб шампиньон капуст морков свекл тыкв кабач баклажан оливк маслин изюм кураг финик чернослив булгур кускус киноа перловк пшен манк протеин гейнер".split(" ");
@@ -1236,7 +1271,9 @@ function guessName(text){
     }
     return name[0].toUpperCase()+name.slice(1).toLowerCase();
   }
-  return "";
+  // The first letter is sometimes lost at the edge of a large word on a lid.
+  const clippedTitle=(text.match(/^[\s|«"'`.,]*(МЕТАНА)[\s|»"'`.,]*$/m)||[])[1];
+  return clippedTitle?"Сметана":"";
 }
 
 /* ---------- Правка записи ---------- */
@@ -1507,6 +1544,7 @@ document.addEventListener("input",e=>{
   if((e.target.id==="grams"||e.target.id==="k100")&&$("#kc")){$("#kc").textContent=$("#k100").value&&$("#grams").value?fmt(+$("#k100").value*+$("#grams").value/100)+" ккал":"—"}
 });
 document.addEventListener("click",e=>{
+  if(e.target.closest("label")?.querySelector("#scanIn,#scanMore"))prepareLabel().catch(()=>{});
   const b=e.target.closest("button");if(!b)return;
   if(b.dataset.re){const x=recents()[+b.dataset.re];if(!x)return;const day=curDay();(S.log[day]=S.log[day]||[]).push({n:x.n,k:x.k,g:x.g||0,m:addMeal,k100:x.k100||0});goal("add_food");markDay();if(save())toast("Записано: "+x.n);return go("diary")}
   if(b.id==="saveW"){const w=+$("#wNow").value;if(!(w>30&&w<300))return toast("Проверьте вес");logWeight(w);goal("weight");const f=forecast();if(save())toast(f&&f.done?"Цель достигнута! 🎉":f?`Записано. Цель ${fmt1(S.profile.tw)} кг к ${fdate(f.date)}`:"Записано");return go("diary")}
@@ -1564,7 +1602,7 @@ document.addEventListener("click",e=>{
   if(b.dataset.day){const d=new Date((viewDay||dk())+"T12:00:00");d.setDate(d.getDate()+(+b.dataset.day));const k=dk(d);viewDay=k>=dk()?null:k;return render()}
   if((b.id==="addFood"||b.id==="addScan"||b.id==="addCustom")&&$("#ml"))addMeal=+$("#ml").value;
   if(b.id==="addFood"){const f=FOODS[pick];const g=+$("#grams").value||0,k1=+$("#k100").value||0;if(g<=0)return toast("Укажите граммы");if(k1<=0)return toast("Укажите калории на 100 г");if(k1!==f[1]){S.kfix=S.kfix||{};S.kfix[f[0]]=k1;f[1]=k1}return addEntry(f[0],k1*g/100,g,k1)}
-  if(b.id==="stopScan"){if(scan){stopLabel(scan);scan.status="";scan.src="Введите данные с упаковки вручную.";renderScan()}return}
+  if(b.id==="stopScan"){if(scan){stopLabel(scan);finishScan(scan,"Введите данные с упаковки вручную.")}return}
   if(b.id==="addScan"){const n=$("#fn").value.trim(),k1=+$("#k100").value||0,g=+$("#grams").value||0;if(!n)return toast("Укажите название продукта");if(k1<=0)return toast("Укажите калории на 100 г");if(g<=0)return toast("Укажите граммы");rememberFood(n,k1,g,scan&&scan.code);return addEntry(n,k1*g/100,g,k1)}
   if(b.dataset.edit){editIdx=+b.dataset.edit;return go("entry")}
   if(b.id==="saveEntry"){const e=S.log[curDay()][editIdx];
