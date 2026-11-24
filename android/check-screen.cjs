@@ -105,13 +105,22 @@ async function run() {
         await check('#grams', {value:''});
         await check('#addScan', {next:'#diarySearch', fields:{'#grams':'50'}});
         await check('.day-summary-total strong', {text:'80'});
+        await check('#scanIn', {label:[['КОТЛЕТА',70], ['Пищевая ценность 100 г продукта',42], ['Энергетическая ценность 956,5 кДж / 228 ккал',37], ['В одной порции (230 г) содержится 524 ккал',37], ['Масса нетто 230 г',50]]});
+        await check('#kWhole', {value:'524'});
+        await check('#scanWholeLabel', {text:'Ккал за всё блюдо'});
+        await check('[data-scan-basis="weight"]', {next:'#k100'});
+        await check('#k100', {value:'228'});
+        await check('[data-scan-basis="whole"]', {next:'#kWhole'});
+        await check('#addScan', {next:'#diarySearch'});
+        await check('.day-summary-total strong', {text:'604'});
         await check('#diarySearch', {next:'[data-pick="custom"]'});
         await check('[data-pick="custom"]', {next:'#addCustom'});
-        await check('#addCustom', {next:'[data-edit="1"]', fields:{'#cn':'Тестовое яблоко', '#ck':'173'}});
+        await check('#addCustom', {next:'[data-edit="2"]', fields:{'#cn':'Тестовое яблоко', '#ck':'173'}});
     }
     await check('#diarySearch');
-    await check('.day-summary-total strong', {text:'253'});
+    await check('.day-summary-total strong', {text:'777'});
     await check('[data-edit="0"]', {text:'Сметана 15%'});
-    await check('[data-edit="1"]', {text:'Тестовое яблоко'});
+    await check('[data-edit="1"]', {text:'Котлета'});
+    await check('[data-edit="2"]', {text:'Тестовое яблоко'});
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });
