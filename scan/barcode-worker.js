@@ -12,12 +12,21 @@ function productCode(text) {
 self.onmessage = ({data: {width, height, pixels}}) => {
   try {
     const format = ZXing.BarcodeFormat;
-    const hints = new Map([[ZXing.DecodeHintType.POSSIBLE_FORMATS,
-      [format.EAN_13, format.EAN_8, format.UPC_A, format.UPC_E, format.DATA_MATRIX]]]);
+    const hints = new Map([
+      [ZXing.DecodeHintType.POSSIBLE_FORMATS, [format.EAN_13, format.EAN_8, format.UPC_A, format.UPC_E, format.DATA_MATRIX]],
+      [ZXing.DecodeHintType.TRY_HARDER, true]
+    ]);
     const source = new ZXing.RGBLuminanceSource(new Int32Array(pixels), width, height);
-    const image = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(source));
     const reader = new ZXing.MultiFormatReader();
-    const result = reader.decode(image, hints);
+    let result;
+    try {
+      result = reader.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(source)), hints);
+    } catch {
+      // A Data Matrix on the side of a lid may be outside the detector's initial centre.
+      const left = Math.floor(width * .42);
+      const side = source.crop(left, 0, width - left, height);
+      result = new ZXing.DataMatrixReader().decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(side)));
+    }
     self.postMessage(result.getBarcodeFormat() === format.DATA_MATRIX ? productCode(result.getText()) : result.getText());
   } catch {
     self.postMessage("");

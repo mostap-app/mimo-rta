@@ -1025,7 +1025,7 @@ function readPackageCode(img,job){
     };
     const deadline=setTimeout(()=>finish(""),2200);
     try{
-      worker=new Worker("scan/barcode-worker.js");
+      worker=new Worker("scan/barcode-worker.js?v=2");
       worker.onmessage=event=>finish(event.data);
       worker.onerror=()=>finish("");
       job.stopped.then(()=>finish(""));
