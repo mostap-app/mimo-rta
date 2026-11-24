@@ -2,7 +2,7 @@
 const { setTimeout: delay } = require('node:timers/promises');
 const firstLaunch = process.argv[2] === 'welcome';
 
-async function check(selector, click = false) {
+async function check(selector, { click = false, fields = {}, text = null } = {}) {
     let last = '';
     for (let attempt = 0; attempt < 30; attempt++) {
         let socket;
@@ -19,6 +19,12 @@ async function check(selector, click = false) {
             const expression = `(() => {
                 const button = document.querySelector(${JSON.stringify(selector)});
                 if (button && button.getBoundingClientRect().height && getComputedStyle(button).visibility === "visible") {
+                    if (${JSON.stringify(text)} !== null && !button.textContent.includes(${JSON.stringify(text)})) return button.textContent;
+                    for (const [key, value] of Object.entries(${JSON.stringify(fields)})) {
+                        const field = document.querySelector(key);
+                        field.value = value;
+                        field.dispatchEvent(new Event("input", {bubbles:true}));
+                    }
                     if (${click}) button.click();
                     return true;
                 }
@@ -56,9 +62,14 @@ async function check(selector, click = false) {
 }
 async function run() {
     if (firstLaunch) {
-        await check('#helloGo', true);
-        await check('#skipProfile', true);
+        await check('#helloGo', {click:true});
+        await check('#skipProfile', {click:true});
+        await check('#diarySearch', {click:true});
+        await check('[data-pick="custom"]', {click:true});
+        await check('#addCustom', {click:true, fields:{'#cn':'Тестовое яблоко', '#ck':'173'}});
     }
     await check('#diarySearch');
+    await check('.day-summary-total strong', {text:'173'});
+    await check('[data-edit="0"]', {text:'Тестовое яблоко'});
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

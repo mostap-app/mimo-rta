@@ -324,6 +324,18 @@ function dayTitle(k){const t=dk(),y=new Date();y.setDate(y.getDate()-1);if(k===t
 function plural(n,a,b,c){n=Math.abs(n)%100;const m=n%10;if(n>10&&n<20)return c;if(m>1&&m<5)return b;if(m==1)return a;return c}
 
 const DIARY_KEY="mimorta";
+const nativeDiary = location.origin==="https://appassets.androidplatform.net" &&
+  window.MimoAndroidSpeech && window.prompt("mimo.ready","")==="diary-v1";
+let nativeDiaryText=null;
+function readDiaryText(){
+  if(nativeDiary){
+    const value=window.prompt("mimo.diary.read","");
+    if(value===null)throw new Error("Android storage unavailable");
+    nativeDiaryText=value||null;
+    if(nativeDiaryText!==null)return nativeDiaryText;
+  }
+  return localStorage.getItem(DIARY_KEY);
+}
 let storedDiary, unreadableDiary=false, storageMessage="", storageRevision=0;
 let S=load();
 let photo=null, ortSess=null, EM=null, scan=null, editIdx=null, viewDay=null, undo=null;
@@ -433,7 +445,7 @@ function parseDiary(raw,legacy=false){
 
 function load(){
   try{
-    storedDiary=localStorage.getItem(DIARY_KEY);
+    storedDiary=readDiaryText();
     if(storedDiary!==null)return parseDiary(storedDiary);
     const old=localStorage.getItem("sytglazami");
     return old===null?emptyDiary():parseDiary(old,true);
@@ -456,13 +468,17 @@ function save(data=S,restore=false){
   storageRevision++;
   if(unreadableDiary&&!restore)return false;
   try{
-    const current=localStorage.getItem(DIARY_KEY);
+    const current=readDiaryText();
     if(current!==(storedDiary==null?null:storedDiary)){
       showStorageMessage("Дневник изменился в другой вкладке. Сохраните копию с этой вкладки, затем обновите страницу.");
       return false;
     }
     const json=JSON.stringify(data);
-    localStorage.setItem(DIARY_KEY,json);
+    if(nativeDiary){
+      const status=window.prompt("mimo.diary.write",JSON.stringify([nativeDiaryText,json]));
+      if(status!=="saved")throw new Error("Android storage write failed");
+      nativeDiaryText=json;
+    }else localStorage.setItem(DIARY_KEY,json);
     storedDiary=json;
     unreadableDiary=false;
     showStorageMessage("");
@@ -1515,7 +1531,7 @@ if(order)tab="track";else if(!S.profile&&!S.skippedProfile)tab=S.hello?"setup":"
 showStorageMessage();
 render();
 document.body.classList.remove("booting");
-if(location.hostname==="appassets.androidplatform.net")window.prompt("mimo.ready","");
+
 trackPilotVisit();
 window.addEventListener("pageshow",trackPilotVisit);
 window.addEventListener("online",syncPilotGoals);

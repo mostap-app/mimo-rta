@@ -5,12 +5,15 @@ import android.app.AlertDialog;
 import android.os.Bundle;
 import android.os.Environment;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.ClipData;
 import android.net.Uri;
 import android.provider.MediaStore;
 import android.speech.RecognizerIntent;
 import android.webkit.JavascriptInterface;
 import org.json.JSONObject;
+import org.json.JSONArray;
+import org.json.JSONException;
 import java.util.ArrayList;
 import android.view.View;
 import android.webkit.*;
@@ -21,6 +24,7 @@ import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
 
 public class DiaryActivity extends Activity {
+    private static final String APP_PAGE = "https://appassets.androidplatform.net/assets/index.html";
     private static final int PICK_FILE = 4001;
     private static final int PICK_SPEECH = 4002;
     private WebView browser;
@@ -51,7 +55,16 @@ public class DiaryActivity extends Activity {
         });
         browser.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onJsPrompt(WebView v, String url, String message, String defaultValue, JsPromptResult result) {
-                if ("mimo.ready".equals(message)) { result.confirm(""); return true; }
+                if (!APP_PAGE.equals(url)) return false;
+                if ("mimo.ready".equals(message)) { result.confirm("diary-v1"); return true; }
+                if ("mimo.diary.read".equals(message)) {
+                    result.confirm(getSharedPreferences("diary", MODE_PRIVATE).getString("data", ""));
+                    return true;
+                }
+                if ("mimo.diary.write".equals(message)) {
+                    result.confirm(writeDiary(defaultValue));
+                    return true;
+                }
                 return false;
             }
             @Override public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> callback, FileChooserParams params) {
@@ -82,7 +95,24 @@ public class DiaryActivity extends Activity {
             }
         });
         if (state != null) browser.restoreState(state);
-        else browser.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+        else browser.loadUrl(APP_PAGE);
+    }
+
+    private String writeDiary(String request) {
+        try {
+            JSONArray update = new JSONArray(request);
+            String expected = update.isNull(0) ? null : update.getString(0);
+            String next = update.getString(1);
+            SharedPreferences prefs = getSharedPreferences("diary", MODE_PRIVATE);
+            String current = prefs.getString("data", null);
+            if (!java.util.Objects.equals(current, expected)) return "conflict";
+            // Acknowledge only after the file is committed, even when Android kills the process immediately.
+            if (prefs.edit().putString("data", next).commit()) return "saved";
+            prefs.edit().putString("data", current).commit();
+        } catch (JSONException | RuntimeException e) {
+            return "error";
+        }
+        return "error";
     }
 
     private class SpeechBridge {
