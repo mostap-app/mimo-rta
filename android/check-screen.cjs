@@ -2,8 +2,7 @@
 const { setTimeout: delay } = require('node:timers/promises');
 const firstLaunch = process.argv[2] === 'welcome';
 
-async function check() {
-    const selector = firstLaunch ? '#helloGo' : '#diarySearch';
+async function check(selector, click = false) {
     let last = '';
     for (let attempt = 0; attempt < 30; attempt++) {
         let socket;
@@ -17,13 +16,20 @@ async function check() {
                 socket.onopen = resolve;
                 socket.onerror = reject;
             });
-            const expression = firstLaunch ? `(() => {
-                const button = document.querySelector('#helloGo');
-                if (!button || !button.getBoundingClientRect().height) return false;
-                button.click();
-                document.querySelector('#skipProfile').click();
-                return Boolean(document.querySelector('#diarySearch'));
-            })()` : 'Boolean(document.querySelector("#diarySearch") && document.querySelector("#diarySearch").getBoundingClientRect().height)';
+            const expression = `(() => {
+                const button = document.querySelector(${JSON.stringify(selector)});
+                if (button && button.getBoundingClientRect().height && getComputedStyle(button).visibility === "visible") {
+                    if (${click}) button.click();
+                    return true;
+                }
+                return {
+                    title: document.title, ready: document.readyState, body: document.body && document.body.className,
+                    screen: document.querySelector("h1") && document.querySelector("h1").textContent,
+                    buttons: Array.from(document.querySelectorAll("#view button"), b => b.id).slice(0,12),
+                    content: document.body && document.body.innerText.slice(0,200),
+                    viewport: [innerWidth, innerHeight], rect: button && button.getBoundingClientRect().toJSON()
+                };
+            })()`;
             const result = await new Promise((resolve, reject) => {
                 const timeout = setTimeout(() => reject(new Error('WebView response timeout')), 2500);
                 socket.onmessage = event => {
@@ -35,7 +41,7 @@ async function check() {
                 socket.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression, returnByValue: true } }));
             });
             if (result.result?.result?.value === true) {
-                console.log('Rendered ' + selector + (firstLaunch ? ' and entered diary' : ' after process restart'));
+                console.log('Rendered ' + selector);
                 return;
             }
             last = JSON.stringify(result);
@@ -48,4 +54,11 @@ async function check() {
     }
     throw new Error('Screen check failed: ' + selector + ' ' + last);
 }
-check().catch(error => { console.error(error); process.exitCode = 1; });
+async function run() {
+    if (firstLaunch) {
+        await check('#helloGo', true);
+        await check('#skipProfile', true);
+    }
+    await check('#diarySearch');
+}
+run().catch(error => { console.error(error); process.exitCode = 1; });

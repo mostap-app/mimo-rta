@@ -22,6 +22,8 @@ check_screen() {
     fi
     adb forward --remove tcp:9222
 }
+adb shell input keyevent KEYCODE_WAKEUP
+adb shell wm dismiss-keyguard
 check_screen welcome
 adb shell am force-stop "$isolated"
 check_screen diary
