@@ -647,7 +647,7 @@ function curW(){const L=S.weights||[];return L.length?L[L.length-1].w:(S.profile
 function forecast(){const p=S.profile;if(!p||p.goal===1||!p.tw)return null;const cur=curW(),left=p.tw-cur;
   if((p.goal===0&&left>=0)||(p.goal===2&&left<=0))return {done:true,left:0};
   const rate=p.goal===0?0.5:0.35,weeks=Math.abs(left)/rate,d=new Date();d.setDate(d.getDate()+Math.ceil(weeks*7));
-  const span=Math.abs(p.tw-(p.w0||p.w))||1;return {date:d,weeks,left,pct:Math.max(0,Math.min(100,Math.round((1-Math.abs(left)/span)*100)))}}
+  const span=Math.abs(p.tw-(p.w0||p.w))||1;return {date:d,weeks,rate,left,pct:Math.max(0,Math.min(100,Math.round((1-Math.abs(left)/span)*100)))}}
 const fdate=d=>d.toLocaleDateString("ru-RU",{day:"numeric",month:"long"});
 function waterNorm(){const w=curW()||70;return Math.max(1500,Math.min(3500,Math.round(w*30/250)*250))}
 function waterCard(day){const ml=(S.water||{})[day]||0,N=waterNorm(),cups=N/250,done=Math.min(cups,Math.round(ml/250));
@@ -664,7 +664,17 @@ function goalCard(){const p=S.profile;if(!p)return"";if(p.goal!==1&&!p.tw)return
 const IC={"L": "<svg class=\"ic\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M15 5l-7 7 7 7\"/></svg>", "R": "<svg class=\"ic\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 5l7 7-7 7\"/></svg>", "P": "<svg class=\"ic\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg>", "M": "<svg class=\"ic\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/></svg>", "X": "<svg class=\"ic\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg>"};
 const fmt1=n=>(Math.round(n*10)/10).toLocaleString("ru-RU");
 function renderPlan(){const p=S.profile,f=forecast();
-  const W=300,H=120,a=p.w0||p.w,bw=p.tw||a,y=v=>H-14-(v-Math.min(a,bw))/(Math.abs(a-bw)||1)*(H-40);
+  const W=300,H=120,a=curW(),bw=p.tw||a,y=v=>H-14-(v-Math.min(a,bw))/(Math.abs(a-bw)||1)*(H-40);
+  let note="Дневная норма рассчитана на поддержание текущего веса.";
+  if(f?.done){
+    note="Цель по весу достигнута.";
+  }else if(f){
+    const weeks=Math.max(1,Math.round(f.weeks));
+    const direction=p.goal===2?"набора":"снижения";
+    note=`Ориентир по темпу ${direction} веса — ${f.rate.toLocaleString("ru-RU")} кг в неделю. До цели примерно ${weeks} ${plural(weeks,"неделя","недели","недель")}.`;
+  }else if(p.goal!==1){
+    note="Укажите желаемый вес, чтобы рассчитать срок.";
+  }
   $("#view").innerHTML=`
    <h1>Ваш план готов</h1>
    <div class="sheet plan">
@@ -672,7 +682,8 @@ function renderPlan(){const p=S.profile,f=forecast();
      ${f&&!f.done?`<div class="pk"><span class="muted">Цель</span><b>${fmt1(p.tw)} кг к ${fdate(f.date)}</b></div>
      <svg viewBox="0 0 ${W} ${H}" class="pcurve" aria-hidden="true"><path d="M14 ${y(a)} C ${W*.45} ${y(a)}, ${W*.55} ${y(bw)}, ${W-14} ${y(bw)}" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round"/><circle cx="14" cy="${y(a)}" r="6" fill="var(--ink)"/><circle cx="${W-14}" cy="${y(bw)}" r="7" fill="var(--save)"/>
        <text x="14" y="${y(a)+(a>bw?-12:22)}" font-size="12" fill="var(--muted)">Сейчас ${fmt1(a)} кг</text><text x="${W-14}" y="${y(bw)+(a>bw?22:-12)}" font-size="12" fill="var(--save-text)" text-anchor="end">${fmt1(bw)} кг</text></svg>
-     <p class="note">Темп ${p.goal===0?"около 0,5 кг":"около 0,35 кг"} в неделю: так вес уходит и не возвращается. Через ${Math.max(1,Math.round(f.weeks))} ${plural(Math.max(1,Math.round(f.weeks)),"неделю","недели","недель")} вы будете у цели, если держать норму.</p>`:`<p class="note">Держите норму, и вес останется стабильным.</p>`}
+     `:""}
+     <p class="note">${note}</p>
    </div>
    <div class="sheet"><b>Как придерживаться плана:</b><p class="note">• Записывайте еду каждый день: фото, скан или голосом.<br>• Взвешивайтесь раз в неделю утром, кнопка «Взвеситься» в дневнике.<br>• Тянет на вредное — закажите «мимо рта» вместо настоящей доставки.</p></div>
    <div class="sheet crave2 hero"><span class="badge-new">✨ Попробуйте вместо доставки</span><h2>Тянет на вредное?</h2><p class="note">Закажите любимую еду понарошку: всё как в доставке, только курьер не приедет. Калории и деньги останутся при вас.</p><button class="ghost" data-go="menu">Посмотреть меню «мимо рта»</button></div>
