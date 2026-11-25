@@ -53,7 +53,7 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" > "$RUNNER_TEMP/isolated-badging"
-          grep -F "name='app.mostap.mimorta.preview.scanmeal'" "$RUNNER_TEMP/isolated-badging"
+          grep -F "name='app.mostap.mimorta.preview.diaryqa'" "$RUNNER_TEMP/isolated-badging"
           grep -E "^application: .*icon='res/mipmap-nodpi(-v4)?/ic_launcher[.]png'" "$RUNNER_TEMP/isolated-badging"
       - name: Enable KVM for emulator
         run: sudo chmod 666 /dev/kvm

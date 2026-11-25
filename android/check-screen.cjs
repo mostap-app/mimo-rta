@@ -1,6 +1,6 @@
 // Read the actual WebView so the test verifies the rendered screen and saved state.
 const { setTimeout: delay } = require('node:timers/promises');
-const firstLaunch = process.argv[2] === 'welcome';
+const mode = process.argv[2];
 
 async function check(selector, { next = null, fields = {}, text = null, value = null, label = null } = {}) {
     let last = '';
@@ -17,6 +17,23 @@ async function check(selector, { next = null, fields = {}, text = null, value = 
                 socket.onerror = reject;
             });
             const expression = `(() => {
+                if (${JSON.stringify(mode)} === 'rollover-prepare') {
+                    if (window.testClockSet) return true;
+                    if (typeof window.mimoNativeResume !== 'function') return 'Waiting for the resume callback';
+                    const resume = window.mimoNativeResume;
+                    window.mimoNativeResume = () => { window.testResumed = true; resume(); };
+                    const OriginalDate = Date;
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate()+1);
+                    tomorrow.setHours(7, 47, 0, 0);
+                    window.Date = class extends OriginalDate {
+                        constructor(...args) { super(...(args.length ? args : [tomorrow.getTime()])); }
+                        static now() { return tomorrow.getTime(); }
+                    };
+                    window.testClockSet = true;
+                    return true;
+                }
+                if (${JSON.stringify(mode)} === 'rollover-resume' && !window.testResumed) return 'Waiting for Android onResume';
                 const visible = element => element && element.getBoundingClientRect().height && getComputedStyle(element).visibility === "visible";
                 const next = ${JSON.stringify(next)};
                 if (next && visible(document.querySelector(next))) return true;
@@ -91,7 +108,20 @@ async function check(selector, { next = null, fields = {}, text = null, value = 
     throw new Error('Screen check failed: ' + selector + ' ' + last);
 }
 async function run() {
-    if (firstLaunch) {
+    if (mode === 'rollover-prepare') {
+        await check('test clock');
+        return;
+    }
+    if (mode === 'rollover-resume') {
+        await check('.daynav h1', {text:'Сегодня'});
+        await check('.day-summary-total strong', {text:'0'});
+        await check('.day-summary-note', {text:'Пока нет записей'});
+        await check('[data-day="-1"]', {next:'[data-edit="0"]'});
+        await check('.daynav h1', {text:'Вчера'});
+        await check('.day-summary-total strong', {text:'777'});
+        return;
+    }
+    if (mode === 'welcome') {
         await check('#helloGo', {next:'#saveProfile'});
         await check('#saveProfile', {next:'.plan .note', fields:{'#w':'65', '#goal':'2', '#tw':'70'}});
         await check('.plan .note', {text:'темпу набора веса — 0,35 кг в неделю. До цели примерно 14 недель.'});

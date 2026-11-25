@@ -98,6 +98,13 @@ public class DiaryActivity extends Activity {
         else browser.loadUrl(APP_PAGE);
     }
 
+    @Override protected void onResume() {
+        super.onResume();
+        if (browser != null && APP_PAGE.equals(browser.getUrl())) {
+            browser.evaluateJavascript("window.mimoNativeResume && window.mimoNativeResume()", null);
+        }
+    }
+
     private String writeDiary(String request) {
         try {
             JSONArray update = new JSONArray(request);
