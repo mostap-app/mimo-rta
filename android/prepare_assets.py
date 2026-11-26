@@ -6,6 +6,7 @@ assets = root / "android/app/src/main/assets"
 assets.mkdir(parents=True, exist_ok=True)
 for name in ("MOBILECLIP_LICENSE.txt", "icon-180.png", "icon-512.png", "manifest.webmanifest", "model.part1.wasm", "model.part2.wasm", "ort-wasm-simd-threaded.mjs", "ort-wasm-simd-threaded.wasm", "ort.wasm.min.js"):
     shutil.copy2(root / name, assets / name)
+shutil.copy2(root / "konfidentsialnost.html", assets / "konfidentsialnost.html")
 # Android serves the OCR dictionary by its uncompressed asset name.
 scan_dir = assets / "scan"
 shutil.copytree(root / "scan", scan_dir, ignore=shutil.ignore_patterns("rus.traineddata.gz"), dirs_exist_ok=True)

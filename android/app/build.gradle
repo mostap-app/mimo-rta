@@ -3,17 +3,19 @@ android {
     namespace 'app.mostap.mimorta.preview'
     compileSdk 35
     defaultConfig {
-        applicationId 'app.mostap.mimorta.preview'
+        applicationId 'app.mostap.mimorta'
         manifestPlaceholders = [appLabel: 'Мимо рта']
         minSdk 29
         targetSdk 34
-        versionCode 3
-        versionName '0.2.1-test'
+        versionCode 4
+        versionName '0.2.1'
     }
     buildTypes {
         debug {
+            applicationIdSuffix '.preview'
+            versionNameSuffix '-test'
             if (providers.gradleProperty('isolatedTest').isPresent()) {
-                applicationIdSuffix '.diaryqa'
+                applicationIdSuffix '.preview.diaryqa'
                 manifestPlaceholders.appLabel = 'Мимо рта · Дневник'
             }
         }
